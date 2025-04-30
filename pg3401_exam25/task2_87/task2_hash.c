@@ -1,9 +1,6 @@
+#include "task2_hash.h"
 /* This file has been created by EWA, and is part of task 2 on the exam for PG3401 2025*/
 /* Original code credited to Dan Bernstein*/
-
-#include <stdio.h> /* I attempted to put this in the header file (to avoid changing this file) but it did not work */
-#include "task2_hash.h"
-
 int Task2_SimpleDjb2Hash(FILE * fFileDescriptor, unsigned int* piHash) {
    unsigned int hash = 5381; 
    int iCharacter = 0; 
