@@ -1,0 +1,7 @@
+0001|00-----0000|30.04 04:18:37|Debug: EWA tool launched starting... (ewa_exam.c:2339)
+0002|00-----0000|30.04 04:18:37|Debug: argv[0] = './ewa_exam_v25_i64' (ewa_exam.c:2341)
+0003|00-E6C06900|30.04 04:18:37|Debug: Executable filename is 'ewa_exam_v25_i64' (ewa_exam.c:2479)
+0004|00-E6C06900|30.04 04:18:37|Debug: Verifying integrity of 'ewa_exam_v25_i64' (ewa_exam.c:2528)
+0005|00-E6C06900|30.04 04:18:37|Debug: EWA tool launched, Session ID = '00-E6C06900' (ewa_exam.c:2607)
+0006|00-E6C06995|30.04 04:19:18|Debug: Folder structure created for candidate 87, updated Session ID = '00-E6C06995' (ewa_exam.c:2664)
+0007|00-E6C06995|30.04 04:19:18|Debug: EWA tool exiting successfully... (ewa_exam.c:2764)
