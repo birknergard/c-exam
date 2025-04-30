@@ -28,6 +28,10 @@ FreeBSD was created in 1993 and comes with over 20 000 packages. It is mainly us
 Unveiled in September 2004, Fedora is a highly innovative distro which caters to Linux desktop users. It is similar to Debian and Ubuntu in this regard and is one of the most widely used distributions. The developers of this distro focus heavily on innovation and aims to be on the cutting edge of the Linux platform. 
 
 ## Task 2
+### Initial Setup
+For this task i started by creating the source file task2_main.c, followed by including the makefile and modifying it slighly (see comments). Then i created header files for all the functions EWA created. I ran into an error where <stdio.h> was not included in the function and attempted to include this in the assorted header files. This did not work, therefore i included <stdio.h> in the provided functions, slightly modifying the source files EWA created.
+
+### Creating the program
 
 # Sources 
 See "Sources" document on google docs.
