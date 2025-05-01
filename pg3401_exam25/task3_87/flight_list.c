@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "passenger_list.h"
 
 static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    FLIGHT *pfCreated = NULL;
@@ -12,7 +13,7 @@ static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    pfCreated = (FLIGHT *) malloc(sizeof(FLIGHT));
    if (pfCreated == NULL) {
       berror("failed malloc in CreateFlight()");
-      return NULL;
+       return NULL;
    }
 
    memset(pfCreated, 0, sizeof(FLIGHT));
@@ -25,6 +26,8 @@ static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
       return NULL;
    }
 
+   pfCreated->pfNext = NULL;
+   pfCreated->pfPrev = NULL;
    pfCreated->iSize = sizeof(fd);
    memcpy(pfCreated->pfdData, &fd, pfCreated->iSize);
 
@@ -40,8 +43,8 @@ FLIGHT_LIST *CreateFlightList(){
       return NULL;
    }
    memset(pflCreated, 0, sizeof(FLIGHT_LIST));
-   pflCreated->pfHead = NULL;
-   pflCreated->pfTail = NULL;
+   pflCreated->pfFirst = NULL;
+   pflCreated->pfLast = NULL;
    
    /* Debugging for checking initial list length
    bdebug("Created new list. Length %d", pList->iLength);
@@ -51,7 +54,7 @@ FLIGHT_LIST *CreateFlightList(){
 }
 
 int DestroyFlightList(FLIGHT_LIST **ppfl){
-   FLIGHT *pfCurrent = (*ppfl)->pfHead;   
+   FLIGHT *pfCurrent = (*ppfl)->pfFirst;   
    FLIGHT *pfTemp = NULL;
 
    while(pfCurrent != NULL){
@@ -70,8 +73,8 @@ int DestroyFlightList(FLIGHT_LIST **ppfl){
    pfCurrent = NULL;
    pfTemp = NULL;
 
-   (*ppfl)->pTail = NULL; 
-   (*ppfl)->pHead = NULL; 
+   (*ppfl)->pfFirst = NULL; 
+   (*ppfl)->pfLast = NULL; 
 
    printf("Freeing list.\n");
    free(*ppfl);
@@ -81,24 +84,24 @@ int DestroyFlightList(FLIGHT_LIST **ppfl){
 
 int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd){
    int iStatusCode = ERROR;
-   FLIGHT *pfNew = CreateNode(fd);
+   FLIGHT *pfNew = _CreateFlight(fd);
 
    if (pfNew != NULL){
 
       /* If head is undefined (list is empty), set new node as head and tail */
-      if(pfl->pfHead == NULL){
-         pfl->pfHead = pThis;
-         pfl->pfTail = pThis;
+      if(pfl->pfFirst == NULL){
+         pfl->pfFirst = pfNew;
+         pfl->pfLast = pfNew;
 
          iStatusCode = OK;
 
       } else {
          /*  Newnode next ptr to current head */
-         pfl->pfNext = pfl->pfHead;
+         pfNew->pfNext = pfl->pfFirst;
          /*  set current head prev ptr to new node */
-         pfl->pfHead->pfPrev = pfNew;
+         pfl->pfFirst->pfPrev = pfNew;
          /* Define new list head as new node */ 
-         pfl->pfHead = pfNew;
+         pfl->pfFirst = pfNew;
          iStatusCode = OK;
       }
    }
@@ -108,13 +111,13 @@ int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd){
 }
 
 /* TODO:*/
-int RemoveFlight(FLIGHT_LIST *pfl, int n){
+int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]){
    int iStatusCode = ERROR;
 
    return iStatusCode;
 }
 
-FLIGHT *GetFlight(FLIGHT_LIST fl, int n){
+static FLIGHT *_GetFlight(FLIGHT_LIST fl, int n){
    int i;
    FLIGHT *pfCurrent = NULL;
 
@@ -124,32 +127,32 @@ FLIGHT *GetFlight(FLIGHT_LIST fl, int n){
    }
 
    if(n == 0){
-      if(fl.pfHead == NULL){
+      if(fl.pfFirst == NULL){
          berror("Flight list HEAD is not defined.\n");
          return NULL;
       }
-      return fl.pfHead;
+      return fl.pfFirst;
    }
 
    if(n == fl.iLength){
-      if(fl.pfTail == NULL){
+      if(fl.pfLast == NULL){
          berror("Flight list TAIL is not defined.\n");
          return NULL;
       }
-      return fl.pfTail; 
+      return fl.pfLast; 
    }
 
    /* If index is smaller or equal to middle, Iterate forward from head ... 
    NOTE: If number is odd the number is automatically rounded down to nearest whole */
    if(n <= fl.iLength / 2){
-      pfCurrent = fl.pfHead;
+      pfCurrent = fl.pfFirst;
       for(i = 0; i < n; i++){
          pfCurrent = pfCurrent->pfNext;
       }
 
    /* ... Else go backwards from tail */
    } else {
-      pfCurrent = fl.pfTail;
+      pfCurrent = fl.pfLast;
       for(i = 0; i < n; i++){
          pfCurrent = pfCurrent->pfPrev;
       }
@@ -160,5 +163,5 @@ FLIGHT *GetFlight(FLIGHT_LIST fl, int n){
 }
 
 FLIGHT_DATA *GetFlightData(FLIGHT_LIST fl, int n){
-   return Get(fl, n)->pfdData; 
+   return _GetFlight(fl, n)->pfdData; 
 }

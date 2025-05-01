@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "debug.h"
+
 /* TODO: store a bool with data indicating whether pData was malloced or not */
 /* TODO: Implement type declaration for list with LIST.szType */
 
@@ -12,13 +14,14 @@
  *	NODE is a generic struct which can hold a pointer to any data,
  *	as well as a pointer to the "next" node.
  * */
-static PASSENGER *_NewPassenger(PASSENGER_DATA *pd){
+/* TODO: MAKE MORE LIKE FLIGHT_LIST */
+static PASSENGER *_NewPassenger(PASSENGER_DATA pd){
 	PASSENGER *ppNew; 
 
-	ppNew = (PASSENGER *) malloc(sizeof(NODE));
+	ppNew = (PASSENGER *) malloc(sizeof(PASSENGER));
 
-	ppNew->pData = pd;
-	ppNew->pNext = NULL;
+	ppNew->ppdData = &pd;
+	ppNew->ppNext = NULL;
 
 	return ppNew;
 }
@@ -27,16 +30,6 @@ static PASSENGER *_NewPassenger(PASSENGER_DATA *pd){
  *	LIST struct which can hold a pointer to any data,
  *	as well as a pointer to the "next" node.
  * */
-PASSENGER_LIST *NewPassengerList(){
-	PASSENGER_LIST *pplNew;
-	pplNew = (PASSENGER_LIST *) malloc(sizeof(PASSENGER_LIST));
-
-	pplNew->iLength = 0;
-	pplNew->ppFirst = NULL;
-
-	return liNew;
-}
-
 static int _DestroyPassenger(PASSENGER *pp){
 	if(pp == NULL){
 		puts("Cannot free null pointer.");	
@@ -48,18 +41,43 @@ static int _DestroyPassenger(PASSENGER *pp){
 	return 0;
 }
 
+static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, int n){
+	int i;
+	PASSENGER *ppCurrent = NULL;
+	ppCurrent = ppl->ppFirst;	
+
+	/* Runs n times */
+	for(i = 0; i < n; i++){
+		ppCurrent = ppCurrent->ppNext;
+	}
+
+	return ppCurrent;
+}
+
+PASSENGER_LIST *CreatePassengerList(){
+	PASSENGER_LIST *pplNew;
+	pplNew = (PASSENGER_LIST *) malloc(sizeof(PASSENGER_LIST));
+
+	pplNew->iLength = 0;
+	pplNew->ppFirst = NULL;
+
+	return pplNew;
+}
+
+
 int DestroyPassengerList(PASSENGER_LIST **pppl){
 	/* for tracking current node */
-	if(pppl == NULL)	return 1;
+	if(*pppl == NULL)
+	   	return 1;
 
-	if(pppl->noHead == NULL){
+	if((*pppl)->ppFirst == NULL){
 		free(pppl);	
 	}
 
 	PASSENGER *ppCurrent, *ppNext;
 	int i;
 
-	ppCurrent = pppl->ppFirst;
+	ppCurrent = (*pppl)->ppFirst;
 
 	while(ppCurrent != NULL){
 		ppNext = ppCurrent->ppNext;
@@ -70,13 +88,13 @@ int DestroyPassengerList(PASSENGER_LIST **pppl){
 	free(pppl);
 }
 
-void AddPassenger(PASSENGER_LIST *ppl, PASSENGER_DATA *ppd){
+void AddPassenger(PASSENGER_LIST *ppl, PASSENGER_DATA pd){
 	PASSENGER *ppNewPassenger;		
-	ppNewPassenger = _NewPassenger(ppd); 
+	ppNewPassenger = _NewPassenger(pd); 
 
 	/* If list is empty, creates new node at head */
 	if(ppl->iLength == 0){
-		ppl->noHead = ppNewPassenger;	
+		ppl->ppFirst = ppNewPassenger;	
 		ppl->iLength++;
 		return;
 	}
@@ -86,33 +104,9 @@ void AddPassenger(PASSENGER_LIST *ppl, PASSENGER_DATA *ppd){
 	ppl->iLength++;	
 }
 
-static NODE *_GetPassenger(PASSENGER_LIST *ppl, int n){
-	int i;
-	PASSENGER *ppCurrent;
-	ppCurrent = lip->ppFirst;	
-
-	/* Runs n times */
-	for(i = 0; i < n; i++){
-		ppCurrent = ppCurrent->ppNext;
-	}
-
-	return ppCurrent;
-}
 
 PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, int n){
-	int i;
-	PASSENGER *ppCurrent = NULL;
-	ppCurrent = ppl->ppFirst;	
-
-	for(i = 0; i < n; i++){
-		ppCurrent = ppCurrent->ppNext;
-
-		if(ppCurrent == NULL){
-			return ppCurrent;
-		}
-	}
-
-	return ppCurrent->ppdData;
+	return _GetPassenger(ppl, n)->ppdData;
 }
 
 /*
