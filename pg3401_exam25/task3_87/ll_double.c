@@ -31,17 +31,17 @@ static NODE *CreateNode(const void *pvData){
    return pNode;
 }
 
-LIST *CreateList(){
-   LIST *pList;
+LL_DOUBLE *CreateList(){
+   LL_DOUBLE *pList;
    pList = NULL;
 
-   pList = (LIST *) malloc(sizeof(LIST));
+   pList = (LL_DOUBLE *) malloc(sizeof(LL_DOUBLE));
    if(pList == NULL){
       bdebug("Error with malloc in CreateList().");
       return NULL;
    }
 
-   memset(pList, 0, sizeof(LIST));
+   memset(pList, 0, sizeof(LL_DOUBLE));
    
    /* Debugging for checking initial list length
    bdebug("Created new list. Length %d", pList->iLength);
@@ -50,7 +50,7 @@ LIST *CreateList(){
    return pList;
 }
 
-int DestroyList(LIST **ppList){
+int DestroyList(LL_DOUBLE **ppList){
    NODE *pCurrent = (*ppList)->pHead;   
    NODE *pTemp = NULL;
 
@@ -79,7 +79,7 @@ int DestroyList(LIST **ppList){
    return OK;
 }
 
-int Add(LIST *pList, void *pvData){
+int Add(LL_DOUBLE *pList, void *pvData){
    int iStatusCode = ERROR;
    NODE *pThis = CreateNode(pvData);
 
@@ -107,7 +107,7 @@ int Add(LIST *pList, void *pvData){
    return iStatusCode;
 }
 
-int Append(LIST *pList, void *pvData){
+int Append(LL_DOUBLE *pList, void *pvData){
    int iStatusCode = ERROR;
    NODE *pThis = CreateNode(pvData);
    if (pThis != NULL) {
@@ -128,13 +128,13 @@ int Append(LIST *pList, void *pvData){
    return iStatusCode;
 }
 
-int Remove(LIST *pList, int i){
+int Remove(LL_DOUBLE *pList, int i){
    int iStatusCode = ERROR;
 
    return iStatusCode;
 }
 
-NODE *Get(LIST pList, int i){
+NODE *Get(LL_DOUBLE pList, int i){
    int j;
    NODE *pCurrent = NULL;
 
@@ -179,6 +179,6 @@ NODE *Get(LIST pList, int i){
    return pCurrent;
 }
 
-void *GetData(LIST pList, int i){
+void *GetData(LL_DOUBLE pList, int i){
    return Get(pList, i)->pvData; 
 }

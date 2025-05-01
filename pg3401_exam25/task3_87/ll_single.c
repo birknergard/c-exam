@@ -27,8 +27,8 @@ static NODE *_NewNode(void *p){
  *	LIST struct which can hold a pointer to any data,
  *	as well as a pointer to the "next" node.
  * */
-LIST *NewList(){
-	LIST *liNew;
+LL_SINGLE *NewList(){
+	LL_SINGLE *liNew;
 	liNew = (LIST*) malloc(sizeof(LIST));
 
 	liNew->iLength = 0;
@@ -54,7 +54,7 @@ static int _FreeNode(NODE *no){
 	return 0;
 }
 
-int FreeList(LIST *lip){
+int FreeList(LL_SINGLE *lip){
 	/* for tracking current node */
 	if(lip == NULL)	return 1;
 
@@ -76,7 +76,7 @@ int FreeList(LIST *lip){
 	free(lip);
 }
 
-void Push(LIST *lip, void *pData){
+void Push(LL_SINGLE *lip, void *pData){
 	NODE *newNode;		
 	newNode = _NewNode(pData); 
 
@@ -92,7 +92,7 @@ void Push(LIST *lip, void *pData){
 	lip->iLength++;	
 }
 
-void Append(LIST *lip, void *pData){
+void Append(LL_SINGLE *lip, void *pData){
 	NODE *newNode, *noTail;
 	newNode = _NewNode(pData);
 
@@ -108,9 +108,9 @@ void Append(LIST *lip, void *pData){
 	lip->iLength++;
 }
 
-void Insert(LIST *lip, void *pData, int iIndex);
+void Insert(LL_SINGLE *lip, void *pData, int iIndex);
 
-static NODE *_GetNode(LIST *lip, int iIndex){
+static NODE *_GetNode(LL_SINGLE *lip, int iIndex){
 	int i;
 	NODE *nopCurrent;
 	nopCurrent = lip->noHead;	
@@ -122,7 +122,7 @@ static NODE *_GetNode(LIST *lip, int iIndex){
 	return nopCurrent;
 }
 
-void *GetValue(LIST *lip, int iIndex){
+void *GetValue(LL_SINGLE *lip, int iIndex){
 	int i;
 	NODE *nopCurrent;
 	nopCurrent = lip->noHead;	
@@ -134,10 +134,9 @@ void *GetValue(LIST *lip, int iIndex){
 	return nopCurrent->pData;
 }
 
-int RemoveFirst(LIST *lip){
+int RemoveFirst(LL_SINGLE *lip){
 	NODE *noOldHead;
 
-	/*TODO: Make list be emptyable, list can be initialized as empty but still take values.*/
 	if(lip->iLength == 0){
 		printf("Cant remove element on empty list.\n");
 		return 1;
@@ -164,7 +163,7 @@ int RemoveFirst(LIST *lip){
 	return 0;
 }
 
-int RemoveLast(LIST *lip){
+int RemoveLast(LL_SINGLE *lip){
 	int i;
 	NODE *nopOldTail, *nopNewTail;
 
@@ -192,7 +191,7 @@ int RemoveLast(LIST *lip){
 int main(void){
 	printf("DEBUG1: Declaring LIST\n");
 
-	LIST *liStart;
+	LL_SINGLE *liStart;
 	int **ip, i, a;
 
 	a = 25;
