@@ -1,9 +1,13 @@
+<pre>
 # Report, C programming for Linux
 This will be where i write my report for the C exam.
 
 ### Notes for submission
 
+
+
 ## Task 1
+
 ### A) Explain what the C programming language can be used for
 The C programming language can theoretically be used to create anything, however it is commonly used in low level systems like embedded systems, operating systems, compilers and other low level software.
 
@@ -27,7 +31,10 @@ FreeBSD was created in 1993 and comes with over 20 000 packages. It is mainly us
 #### 5. Fedora
 Unveiled in September 2004, Fedora is a highly innovative distro which caters to Linux desktop users. It is similar to Debian and Ubuntu in this regard and is one of the most widely used distributions. The developers of this distro focus heavily on innovation and aims to be on the cutting edge of the Linux platform. 
 
+
+
 ## Task 2
+
 ### Initial Setup
 I started by creating the source and header file for my main program "task2_main.c", followed by including the makefile and modifying it slighly (see comments). Then i created header files for all the functions EWA created.
 
@@ -58,5 +65,21 @@ fi
 ### Creating the program
 Implementation of the program was really simple. I used the functions i was given to inject the metadata into my struct and write that struct to a bin file.
 
+
+
+## Task 3
+
+### Initial setup
+For this program I found that i had a lot of data structures prepared. I had already created the menu structure, single linked list and doubly linked list beforehand, as well as some other utility files (debug and util). However, when i put them all togheter (specifically the linked lists) i found that they had conflicting data types. Initially i tried renaming the wrappers but found the same issue with the naming of methods and the NODE struct. I then decided to refactor these two data structures into PLANES and PASSENGERS, since it would make the whole program a lot more straight forward later on.
+
+### Menu implementation
+
+### Linked List implementation
+
+### Other files
+
+### Creating the final program
+
 ## Sources 
 See "Sources" document on google docs.
+</pre>
