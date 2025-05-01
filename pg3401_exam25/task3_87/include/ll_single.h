@@ -1,16 +1,30 @@
-#ifndef ___LL_SINGLE___
+/*--------------------------------------------------
+* AUTHOR: 87
+* DESCRIPTION: Header file for declaring various data belonging to the passenger list datastructure.  
+*		The data structure is based on a (sorted) singly linked list implementation.
+* PREFIX: lp: For (l)ist of (p)assengers
+--------------------------------------------------*/
+#ifndef ___PASSENGER_LIST___
+#define ___PASSENGER_LIST___
 
-#define ___LL_SINGLE___
+/* The longest name (according to google) is 747. So this seems like a reasonable max :) */
+#define MAX_NAME 1028
 
 #pragma pack (1)
 /*
  * The struct NODE containts a pointer to data,
  * as well as a pointer to the "next" node.
  * */
-typedef struct _NODE {
+typedef struct _PASSENGER_DATA{
+    int iSeatNumber;
+    char szName[MAX_NAME];
+    int iAge;
+} PASSENGER_DATA;
+
+typedef struct _PASSENGER {
     struct _NODE *pNext;
-	    void *pData; /* Creates an generic pointer to the data instead of holding the data itself*/
-} NODE;
+    PASSENGER_DATA *pData; /* Creates an generic pointer to the data instead of holding the data itself*/
+} PASSENGER;
 #pragma pack ()
 
 #pragma pack (1)
@@ -18,11 +32,11 @@ typedef struct _NODE {
  *  The struct LIST is a linked list implementation that holds
  *  the head of the linked list, as well as the total length.
  * */
-typedef struct _LL_SINGLE{
-    NODE *noHead;
+typedef struct _PASSENGER_LIST{
+    PASSENGER *noHead;
     char *szType;
     int iLength;
-} LL_SINGLE;
+} PASSENGER_LIST;
 #pragma pack ()
 
 /*
