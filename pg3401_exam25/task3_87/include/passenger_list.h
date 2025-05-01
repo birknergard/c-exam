@@ -45,7 +45,7 @@ typedef struct _PASSENGER_LIST{
  * Initializes an empty passenger list
  * */
 PASSENGER_LIST *CreatePassengerList();
-int DestroyPassengerList(PASSENGER_LIST **pppl);
+int DestroyPassengerList(PASSENGER_LIST *pppl);
 
 /*
  *  This function pushes a passenger into the linked list, and makes it the new head of the list.
@@ -60,8 +60,10 @@ PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, char szName[]);
 /* 
  * Removes a passenger, given its nth position in the passenger list 
  * */
-int RemovePassenger(PASSENGER_LIST *ppl, int iSeatNumber);  
+int RemovePassenger(PASSENGER_LIST *ppl, char szName[]);  
 
-void ChangePassengerSeat(PASSENGER_LIST *ppl, int iPreviousSeat, int iNewSeat);
+void ChangePassengerSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat);
+
+void PrintList(PASSENGER_LIST *ppl);
 
 #endif /*ndef ___PASSENGER_LIST_H___ */

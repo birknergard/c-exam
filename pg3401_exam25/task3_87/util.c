@@ -7,7 +7,8 @@
 
 #include "./include/debug.h"
 
-int StrncpyLowercase(char *szLowerString[], char szString[], int iMaxBuffer){
+int StrncpyLowercase(char szLowerString[], char szString[], int iMaxBuffer){
+
 	char *pszStringBuffer = NULL;  
 	int iLength, i;
 
@@ -27,8 +28,8 @@ int StrncpyLowercase(char *szLowerString[], char szString[], int iMaxBuffer){
 		pszStringBuffer[i] = tolower(szString[i]);	
 	}
 
-	strncpy(*szLowerString, pszStringBuffer, iMaxBuffer);
-	(*szLowerString)[iLength] = '\0'; 
+	strncpy(szLowerString, pszStringBuffer, iMaxBuffer);
+	szLowerString[iLength] = '\0'; 
 
 	free(pszStringBuffer);
 
@@ -36,7 +37,7 @@ int StrncpyLowercase(char *szLowerString[], char szString[], int iMaxBuffer){
 }
 
 
-int ParsePositiveInt(char *psz){
+int ParsePositiveInteger(char *psz){
 	int iNum, iLen, i;
 
 	if(strlen(psz) >= MAX_STRING_SIZE){

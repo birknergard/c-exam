@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./include/debug.h"
-#include "./include/util.h"
+#include "debug.h"
+#include "util.h"
 
 /*
  * Private function for creating options. Takes a string and a function pointer.
@@ -181,7 +181,7 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 		/* Removes newline from input */
 		pszUserInput[strcspn(pszUserInput, "\r\n")] = 0;
 
-		iSelection = ParsePositiveInt(pszUserInput);
+		iSelection = ParsePositiveInteger(pszUserInput);
 
 		if(iSelection < 0 || iSelection > pMenu->iOptionCount){
 			printf("Invalid selection. Please try again ...\n");

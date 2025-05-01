@@ -1,0 +1,77 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "debug.h"
+#include "menu.h"
+#include "flight_list.h"
+
+int main(void){
+
+	bdebug("Testing program!");
+
+	MENU *pMenu = NULL;
+
+	pMenu = CreateMenu();
+	
+	DestroyMenu(&pMenu);
+
+	/* Testing passenger list datastruct */
+
+    PASSENGER_LIST *plist = CreatePassengerList();
+    if (!plist) {
+        printf("Failed to create passenger list.\n");
+        return 1;
+    }
+
+    printf("Passenger list created.\n");
+
+    /* Add some passengers */
+    AddPassenger(plist, 12, "Alice Johnson", 29);
+    AddPassenger(plist, 24, "Bob Smith", 35);
+    AddPassenger(plist, 33, "Charlie Davis", 42);
+
+    printf("Added 3 passengers.\n");
+
+    PASSENGER_DATA *pdata = GetPassengerData(plist, "Bob Smith");
+    if (pdata) {
+        printf("Retrieved passenger: %s, Age: %d, Seat: %d\n", pdata->szName, pdata->iAge, pdata->iSeatNumber);
+    } else {
+        printf("Passenger not found.\n");
+    }
+
+    printf("Changing Charlie's seat from 33 to 44...\n");
+    ChangePassengerSeat(plist, 33, 44);
+
+    pdata = GetPassengerData(plist, "Charlie Davis");
+    if (pdata && pdata->iSeatNumber == 44) {
+        printf("Seat successfully changed to %d\n", pdata->iSeatNumber);
+    } else {
+        printf("Seat change failed.\n");
+    }
+
+    printf("Removing passenger with seat 12 (Alice)...\n");
+    if (RemovePassenger(plist, 12) == 0) {
+        printf("Passenger removed successfully.\n");
+    } else {
+        printf("Failed to remove passenger.\n");
+    }
+
+    pdata = GetPassengerData(plist, "Alice Johnson");
+    if (!pdata) {
+        printf("Alice successfully removed.\n");
+    } else {
+        printf("Error: Alice still in the list.\n");
+    }
+
+    if (DestroyPassengerList(&plist) == 0 && plist == NULL) {
+        printf("Passenger list destroyed successfully.\n");
+    } else {
+        printf("Failed to destroy passenger list.\n");
+    }
+
+    return 0;
+}
+
+
+	return 0;
+}	

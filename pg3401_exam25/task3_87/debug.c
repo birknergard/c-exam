@@ -16,6 +16,6 @@ void Debug(unsigned short usErrorType, int iLine, const char szFileName[], const
 	vsnprintf(szOutput, MAX_BUFFER, szFormat, vaArgs);
 	va_end(vaArgs);
 
-	printf("%10s in %s:%d ->> %s \n", szType, szFileName, iLine, szOutput);
+	printf("%s in %s:%d ->> %s \n", szType, szFileName, iLine, szOutput);
 }
 

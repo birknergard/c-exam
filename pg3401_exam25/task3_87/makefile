@@ -4,7 +4,7 @@ CFLAGS = -O0
 CFLAGS += -I $(INCLDIR)
 
 # Sets compiler standard to c89
-CFLAGS += -std=c89
+CFLAGS += -std=c99
 # Display all warnings
 #CFLAGS += -Wall
 
