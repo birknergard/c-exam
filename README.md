@@ -1,11 +1,10 @@
-<pre>
 # Report, C programming for Linux
 This will be where i write my report for the C exam.
 
 ### Notes for submission
-
-
-
+<br />
+<br />
+<br />
 ## Task 1
 
 ### A) Explain what the C programming language can be used for
@@ -30,9 +29,9 @@ FreeBSD was created in 1993 and comes with over 20 000 packages. It is mainly us
 
 #### 5. Fedora
 Unveiled in September 2004, Fedora is a highly innovative distro which caters to Linux desktop users. It is similar to Debian and Ubuntu in this regard and is one of the most widely used distributions. The developers of this distro focus heavily on innovation and aims to be on the cutting edge of the Linux platform. 
-
-
-
+<br />
+<br />
+<br />
 ## Task 2
 
 ### Initial Setup
@@ -61,12 +60,12 @@ fi
 	sed -i '1i#include "task2_hash.h"' task2_hash.c; \
 fi
 ```
-
+<br/>
 ### Creating the program
 Implementation of the program was really simple. I used the functions i was given to inject the metadata into my struct and write that struct to a bin file.
-
-
-
+<br/>
+<br/>
+<br/>
 ## Task 3
 
 ### Initial setup
@@ -82,4 +81,3 @@ For this program I found that i had a lot of data structures prepared. I had alr
 
 ## Sources 
 See "Sources" document on google docs.
-</pre>
