@@ -1,4 +1,5 @@
 /*--------------------------------------------------
+ TODO: DOCUMENTATION
 * AUTHOR: BKN
 * DESCRIPTION: Doubly linked list implementation
 *              which holds anonymous datatype in
@@ -22,7 +23,7 @@ typedef struct _FLIGHT_DATA{
    char szFlightID[ID_SIZE]
    int iSeats;
    int iDepartureTime;
-   PASSENGER_LIST lpPassengers;
+   PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
 
 #pragma pack()
@@ -31,10 +32,10 @@ typedef struct _FLIGHT_DATA{
  * PREFIX: f - (f)light
  * */
 typedef struct _FLIGHT {
-   struct _FLIGHT *pNext;
-   struct _FLIGHT *pPrev;
+   struct _FLIGHT *pfNext;
+   struct _FLIGHT *pfPrev;
    int iSize;
-   FLIGHT_DATA *pdData;
+   FLIGHT_DATA *pfdData;
 } FLIGHT;
 
 /* 
@@ -46,6 +47,7 @@ typedef struct _FLIGHT_LIST {
    int iFlights;
 } FlIGHT_LIST;
 
+static FLIGHT *CreateFlight(const FLIGHT_DATA *pfd);
 /* Creation functions */
 FLIGHT_LIST *CreatePlaneList();
 int DestroyFlightList(FLIGHT_LIST **ppfl);
