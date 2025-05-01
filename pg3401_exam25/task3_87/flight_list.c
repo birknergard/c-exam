@@ -11,9 +11,9 @@ static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    FLIGHT *pfCreated = NULL;
 
    pfCreated = (FLIGHT *) malloc(sizeof(FLIGHT));
-   if (pfCreated == NULL) {
-      berror("failed malloc in CreateFlight()");
-       return NULL;
+   if(pfCreated == NULL){
+      berror("Failed malloc in CreateFlight()");
+      return NULL;
    }
 
    memset(pfCreated, 0, sizeof(FLIGHT));
@@ -23,13 +23,19 @@ static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
       berror("Failed malloc in CreateFlight() struct fdData\n");
       free(pfCreated);
       pfCreated = NULL;
-      return NULL;
+      return pfCreated;
    }
 
    pfCreated->pfNext = NULL;
    pfCreated->pfPrev = NULL;
    pfCreated->iSize = sizeof(fd);
    memcpy(pfCreated->pfdData, &fd, pfCreated->iSize);
+   if(pfCreated->pfdData == NULL){
+      berror("Failed memcpy in CreateFlight().");
+      free(pfCreated->pfdData);
+      free(pfCreated);
+      pfCreated = NULL;
+   }
 
    return pfCreated;
 }

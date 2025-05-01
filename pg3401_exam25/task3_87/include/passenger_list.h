@@ -9,8 +9,6 @@
 #ifndef ___PASSENGER_LIST_H__
 #define ___PASSENGER_LIST_H__
 
-#include "debug.h"
-
 /* The longest name (according to google) is 747. So this seems like a reasonable max :) */
 #define MAX_NAME 1028
 
@@ -52,12 +50,12 @@ int DestroyPassengerList(PASSENGER_LIST **pppl);
 /*
  *  This function pushes a passenger into the linked list, and makes it the new head of the list.
  * */
-void AddPassenger(PASSENGER_LIST *ppl, PASSENGER_DATA pd);
+int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge);
 
 /*
  *  This function retrieves the data of a node given its nth position (n) in the list.
  * */
-PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, int n);
+PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, char szName[]);
 
 /* 
  * Removes a passenger, given its nth position in the passenger list 
