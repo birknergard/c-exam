@@ -11,18 +11,18 @@ CFLAGS += -std=c89
 
 OBJDIR = obj
 
-_DEPS = debug.h menu.h util.h linked_list.h 
+_DEPS = debug.h menu.h util.h ll_double.h ll_single.h main.h
 DEPS = $(patsubst %,$(INCLDIR)/%,$(_DEPS))
 
-_OBJS = debug.o menu.o util.o linked_list.o  
+_OBJS = debug.o menu.o util.o ll_double.o ll_single.o main.o  
 OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) 
 
-lib: $(OBJS)
-	ar rcs bexamlib.a $(OBJS)
-	$(CC) test.c bexamlib.a $(CFLAGS) -o test  
+main: $(OBJS)
+	ar rcs task3.a $(OBJS)
+	$(CC) task3.a -o $^ $(CFLAGS) 
 
 .PHONY: clean
 clean:

@@ -29,7 +29,7 @@ static NODE *_NewNode(void *p){
  * */
 LL_SINGLE *NewList(){
 	LL_SINGLE *liNew;
-	liNew = (LIST*) malloc(sizeof(LIST));
+	liNew = (LL_SINGLE *) malloc(sizeof(LL_SINGLE));
 
 	liNew->iLength = 0;
 	liNew->noHead = NULL;
@@ -187,7 +187,7 @@ int RemoveLast(LL_SINGLE *lip){
 	return 0;		
 }
 
-/* For internal testing */
+/* For internal testing 
 int main(void){
 	printf("DEBUG1: Declaring LIST\n");
 
@@ -253,3 +253,4 @@ int main(void){
 
 	return 0;
 }
+*/

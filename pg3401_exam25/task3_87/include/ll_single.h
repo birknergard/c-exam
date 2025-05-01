@@ -18,11 +18,11 @@ typedef struct _NODE {
  *  The struct LIST is a linked list implementation that holds
  *  the head of the linked list, as well as the total length.
  * */
-typedef struct _LIST{
+typedef struct _LL_SINGLE{
     NODE *noHead;
     char *szType;
     int iLength;
-} LIST;
+} LL_SINGLE;
 #pragma pack ()
 
 /*
@@ -37,17 +37,17 @@ static NODE *_NewNode(void *pData);
  * pointer as an argument, which it stores within the head node.
  * Returns a memory adress containing a LIST struct.
  * */
-LIST *NewList();
+LL_SINGLE *NewList();
 
 /*
  *  This function pushes a node into the linked list, making it the new head.
  * */
-void Push(LIST *lip, void *pData);
+void Push(LL_SINGLE *lip, void *pData);
 
 /*
  *  This function appends a node to the end of the list.
  * */
-void Append(LIST *lip, void *pData);
+void Append(LL_SINGLE *lip, void *pData);
 
 
 /*
@@ -57,14 +57,14 @@ void Append(LIST *lip, void *pData);
  *
  *  int data = *(int) Get(LINKEDLIST, INDEX);
  * */
-void *GetValue(LIST *lip, int iIndex);
+void *GetValue(LL_SINGLE *lip, int iIndex);
 
 
-static NODE *_GetNode(LIST *lip, int iIndex);
+static NODE *_GetNode(LL_SINGLE *lip, int iIndex);
 
-int RemoveFirst(LIST *lip);  
+int RemoveFirst(LL_SINGLE *lip);  
 
-int RemoveLast(LIST *lip, int iIndex);  
+int RemoveLast(LL_SINGLE *lip);  
 
 
-#endif /* ndef ___LL_SINGLE___ */
+#endif /*ndef ___LL_SINGLE___ */
