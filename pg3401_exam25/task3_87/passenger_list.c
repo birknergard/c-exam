@@ -170,6 +170,7 @@ int DestroyPassengerList(PASSENGER_LIST *pppl){
 		_DestroyPassenger(ppCurrent);
 		ppCurrent = ppNext;
 	}
+
 	ppCurrent = NULL;
 	ppNext = NULL;
 	free(pppl);

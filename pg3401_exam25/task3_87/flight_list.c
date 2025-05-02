@@ -1,3 +1,5 @@
+#include "flight_list.h" 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -137,17 +139,10 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
 
    /* Goes through the list, freeing each node and its corresponding data */
    while(pfCurrent != NULL){
-      if(pfCurrent->pfdData != NULL){
-         DestroyPassengerList(pfCurrent->pfdData->pplPassengers);
-         printf("Freeing node data\n");
-         free(pfCurrent->pfdData);
-         pfCurrent->pfdData = NULL;
-      }
-      
       pfTemp = pfCurrent;
       pfCurrent = pfCurrent->pfNext;
       printf("->Freeing node\n");
-      free(pfTemp);
+      DestroyFlight(pfTemp);
    }
 
    pfCurrent = NULL;
@@ -503,7 +498,7 @@ int InternalFlightListTest() {
 
    /* Test: Removing valid flight */
    bdebug("Test: Removing flight 'FL02'...");
-   PrintFlightList(pfl);
+   //PrintFlightList(pfl);
    if (RemoveFlight(pfl, "FL02") != OK) {
        bdebug("FAILED: Could not remove existing flight 'FL02'.\n");
        iFailed = 1;
@@ -511,10 +506,24 @@ int InternalFlightListTest() {
 
    /* Confirm removal */
    bdebug("Test: Confirming 'FL02' was removed...");
-   PrintFlightList(pfl);
+   //PrintFlightList(pfl);
    pos = _GetFlightNumberByDestination(*pfl, "London");
    if (pos != -1) {
        bdebug("FAILED: Flight 'London' should have been removed.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Removing valid flight */
+   bdebug("Test: Removing flight 'FL03'...");
+   if (RemoveFlight(pfl, "FL03") != OK) {
+       bdebug("FAILED: Could not remove existing flight 'FL02'.\n");
+       iFailed = 1;
+   }
+   bdebug("Test: Confirming 'FL03' was removed...");
+   PrintFlightList(pfl);
+   pos = _GetFlightNumberByDestination(*pfl, "London");
+   if (pos != -1) {
+       bdebug("FAILED: Flight 'Tokyo' should have been removed.\n");
        iFailed = 1;
    }
 
