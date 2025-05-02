@@ -1,5 +1,3 @@
-#include "flight_list.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,12 +10,20 @@
  * */
 static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination[]){
    FLIGHT *pfCreated = NULL;
+   int iDestinationSize = strlen(szDestination);
+   int iIDSize = strlen(szID);
 
    /* Verifying string length for destination */
-   if(strlen(szDestination) >= MAX_DESTINATION){
-      berror("Provided destination exceeds max character count for destinations (%d)", MAX_DESTINATION);
+   if(iDestinationSize >= MAX_DESTINATION || iDestinationSize < 1){
+      berror("Provided destination(%d) exceeds max character count for destinations (%d)", iDestinationSize, MAX_DESTINATION);
       return NULL;
    }
+
+   if(iIDSize != 4){
+      berror("Invalid ID. Needs to be %d characters long\n", MAX_ID - 1);
+      return NULL;
+   
+   };
 
    /* Allocate new flight */
    pfCreated = (FLIGHT *) malloc(sizeof(FLIGHT));
@@ -38,26 +44,37 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
       pfCreated = NULL;
       return pfCreated;
    }
-   memset(pfCreated->pfdData, 0, sizeof(FLIGHT_DATA));
-   memset(pfCreated->pfdData->iSeats, 0, sizeof(FLIGHT_DATA));
-   
+   /* Initializing destination pointer to null*/
+   pfCreated->pfdData->pszDestination = NULL;
+
+   /* Initializing ID array*/
+   memset(pfCreated->pfdData->szID, 0, MAX_ID);
+   pfCreated->pfdData->pszDestination = (char *) malloc(iDestinationSize + 1);
+   if(pfCreated->pfdData->pszDestination == NULL){
+      berror("Failed malloc for creating szDestination.\n");
+      free(pfCreated->pfdData);
+      free(pfCreated);
+      return NULL;
+   }
+
    /* Set data struct members */
    pfCreated->pfdData->iDepartureTime = iDepartureTime;
 
    strncpy(pfCreated->pfdData->szID, szID, MAX_ID);
-   pfCreated->pfdData->szID[MAX_ID] = '\0';
+   pfCreated->pfdData->szID[MAX_ID - 1] = '\0';
 
    /* Set data struct members */
-   strncpy(pfCreated->pfdData->szDestination, szDestination, strlen(szDestination));
-   pfCreated->pfdData->szID[MAX_ID] = '\0';
+   strncpy(pfCreated->pfdData->pszDestination, szDestination, iDestinationSize);
+   pfCreated->pfdData->pszDestination[iDestinationSize] = '\0';
 
    /* Stores size of data */
-   pfCreated->iSize = sizeof(FLIGHT_DATA);
+   pfCreated->iSize = sizeof(pfCreated->pfdData);
 
    /* Creates the passenger list within the flight data */
    pfCreated->pfdData->pplPassengers = CreatePassengerList();
    if(pfCreated->pfdData->pplPassengers == NULL){
       berror("Failed to create passenger list.");
+      free(pfCreated->pfdData->pszDestination);
       free(pfCreated->pfdData);
       free(pfCreated);
       pfCreated = NULL;
@@ -68,7 +85,7 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
 }
 
 /*
- * TODO:
+ *
  * */
 static int DestroyFlight(FLIGHT *pf){
    int iPListDestroyed;
@@ -83,6 +100,7 @@ static int DestroyFlight(FLIGHT *pf){
       return ERROR;
    };
 
+   free(pf->pfdData->pszDestination);
    free(pf->pfdData);
    free(pf);
 
@@ -103,7 +121,7 @@ FLIGHT_LIST *CreateFlightList(){
    }
 
    /* Initializing pointer */
-   memset(pflCreated, 0, sizeof(FLIGHT_LIST));
+   pflCreated->iLength = 0;
    pflCreated->pfFirst = NULL;
    pflCreated->pfLast = NULL;
    
@@ -167,8 +185,9 @@ int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
 
    /* Searches the list until it reaches a null pointer (end) */
    while(pfCurrent != NULL){
-      /* Since we checked the character length of szDestination beforehand, strcmp is safe(ish) */
-      if(strcmp(pfCurrent->pfdData->szDestination, szDestination) == 0){
+
+      /* Since we checked the character length of szDestination beforehand, strcmp is safe */
+      if(strcmp(pfCurrent->pfdData->pszDestination, szDestination) == 0){
          return iPosition;
       }
 
@@ -181,7 +200,7 @@ int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
 }
 
 /*
- * TODO:: Update
+ *
  * */
 static FLIGHT *_GetFlightByID(FLIGHT_LIST fl, char szID[]){
    FLIGHT *pfCurrent = NULL;
@@ -225,6 +244,7 @@ FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n){
       return fl.pfFirst->pfdData;
    }
 
+
    if(n == fl.iLength){
       if(fl.pfLast == NULL){
          berror("Flight list TAIL is not defined.\n");
@@ -254,33 +274,37 @@ FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n){
 }
 
 /*
- * TODO:: Update
+ * Inserts a new flight at the head of the list 
  * */
 int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestination[]){
    int iStatusCode = ERROR;
-   FLIGHT *pfNew = _CreateFlight(szID, iDepartureTime, szDestination);
+   FLIGHT *pfNew = NULL;
 
+   pfNew = _CreateFlight(szID, iDepartureTime, szDestination);
    if (pfNew != NULL){
-
       /* If head is undefined (list is empty), set new node as head and tail */
       if(pfl->pfFirst == NULL){
          pfl->pfFirst = pfNew;
          pfl->pfLast = pfNew;
-
+//
          iStatusCode = OK;
 
       } else {
          /*  Newnode next ptr to current head */
          pfNew->pfNext = pfl->pfFirst;
+
          /*  set current head prev ptr to new node */
          pfl->pfFirst->pfPrev = pfNew;
+
          /* Define new list head as new node */ 
          pfl->pfFirst = pfNew;
-         iStatusCode = OK;
+
       }
+      pfl->iLength++;
+      iStatusCode = OK;
    }
 
-   pfl->iLength++;
+   pfNew = NULL;
    return iStatusCode;
 }
 
@@ -291,7 +315,6 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    FLIGHT *pfTarget = NULL;
    FLIGHT *pfAdjacentLeft = NULL;
    FLIGHT *pfAdjacentRight = NULL;
-	int iStatus = ERROR;
 
    /* Checks list length */
    if(pfl->iLength == 0 || pfl->pfFirst == NULL){
@@ -304,13 +327,24 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
       return ERROR;
    }
 
-   /* Finds the adjacent nodes */
+   /* Should be null if its the only item in the list, else should be another node */
+   if(pfTarget == pfl->pfFirst){
+      pfl->pfFirst = pfl->pfFirst->pfNext;   
+   }
+
+   if(pfTarget == pfl->pfLast){
+      pfl->pfLast = pfl->pfLast->pfPrev;   
+   }
+
+   /* Finds the adjacent nodes (even if they are null) */
    pfAdjacentLeft = pfTarget->pfNext;
    pfAdjacentRight = pfTarget->pfPrev;
 
    /* Points the adjacent nodes to each other, omitting the target */
-   pfAdjacentRight->pfNext = pfAdjacentLeft;
-   pfAdjacentLeft->pfPrev = pfAdjacentRight;
+   if (pfAdjacentRight != NULL)
+      pfAdjacentRight->pfNext = pfAdjacentLeft;
+   if (pfAdjacentLeft != NULL)
+      pfAdjacentLeft->pfPrev = pfAdjacentRight;
 
    /* Detach target */
    pfTarget->pfNext = NULL;
@@ -326,39 +360,47 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    pfAdjacentLeft = NULL;
    pfAdjacentRight = NULL;
 
-   return iStatus;
+   return OK;
 }
 
-
-void PrintPassengers(FLIGHT_DATA *pfd){
-   PrintPassengerList(pfd->pplPassengers);
-}
 /*
  * TODO:: Create
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
-   int n;
-   FLIGHT_DATA *pfCurrentFlight; 
+   int n = 0;
+   FLIGHT *pfCurrentFlight = NULL; 
 
-   pfCurrentFlight = pfl->pfFirst->pfdData;
+   if(pfl->iLength == 0){
+      printf("No flights have been added to the list\n");
+      return;
+   }
 
-   printf("List of Flights, size %d", pfl->iLength);
+   pfCurrentFlight = pfl->pfFirst;
+
+   printf("List of Flights, size %d\n", pfl->iLength);
    while(pfCurrentFlight != NULL){
+      n++;
       printf("%d-> ", n);
-      printf("%s - Destination: %s - Departs at: %d", 
-             pfCurrentFlight->szID,
-             pfCurrentFlight->szDestination,
-             pfCurrentFlight->iDepartureTime
+      printf("%s: TO:  %s, DEPARTS: %d", 
+             pfCurrentFlight->pfdData->szID,
+             pfCurrentFlight->pfdData->pszDestination,
+             pfCurrentFlight->pfdData->iDepartureTime
 
       );
 
       /* Inserts a little pointer to the head and tail :) */
-      if(pfCurrentFlight == pfl->pfFirst->pfdData || pfCurrentFlight == pfl->pfLast->pfdData) puts("  <--\n");
-      else puts("\n");
+      if(pfCurrentFlight == pfl->pfFirst && pfCurrentFlight == pfl->pfLast) printf("  <--HEAD/TAIL\n");
+      else if(pfCurrentFlight == pfl->pfFirst) printf("  <--HEAD\n");
+      else if(pfCurrentFlight == pfl->pfLast) printf("  <--TAIL\n");
+      else puts("");
 
       /* Prints number of available seats */
-      printf("Available seats: %d", (64 - pfCurrentFlight->pplPassengers->iLength));
-      PrintPassengers(pfCurrentFlight);
+      printf("   Available seats: %d\n", (MAX_SEATS - pfCurrentFlight->pfdData->pplPassengers->iLength));
+
+      /* Prints the list of passengers for the flight */
+      PrintPassengerList(pfCurrentFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
+      
+      pfCurrentFlight = pfCurrentFlight->pfNext;
    }
 
    /* Cleanup */
@@ -367,6 +409,122 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
    return;
 }
 
-void InternalFlightListTest(){
-   return;
+int InternalFlightListTest() {
+   int iFailed = 0;
+   int pos;
+   char longDestination[MAX_DESTINATION + 10];
+   FLIGHT_LIST *pfl;
+   FLIGHT_DATA *data;
+
+   bdebug("Starting internal flight list tests...\n");
+
+   /* Test: Creating flight list */
+   bdebug("Test: Creating flight list...");
+   pfl = CreateFlightList();
+   if (pfl == NULL) {
+       bdebug("FAILED: Could not create flight list.\n");
+       return 1;
+   }
+
+   /* Test: Adding valid flights */
+   bdebug("Test: Adding flight FL001...");
+   //PrintFlightList(pfl);
+   if (AddFlight(pfl, "FL01", 900, "New York") != OK) {
+       bdebug("FAILED: Could not add FL001.\n");
+       iFailed = 1;
+   }
+
+   bdebug("Test: Adding flight FL002...");
+   //PrintFlightList(pfl);
+   if (AddFlight(pfl, "FL02", 1300, "London") != OK) {
+       bdebug("FAILED: Could not add FL002.\n");
+       iFailed = 1;
+   }
+
+   bdebug("Test: Adding flight FL003...");
+   //PrintFlightList(pfl);
+   if (AddFlight(pfl, "FL03", 1700, "Tokyo") != OK) {
+       bdebug("FAILED: Could not add FL003.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Adding flight with too-long destination */
+   bdebug("Test: Attempting to add flight with destination exceeding MAX_DESTINATION...");
+   //PrintFlightList(pfl);
+   memset(longDestination, 'A', MAX_DESTINATION + 9);
+   longDestination[MAX_DESTINATION + 9] = '\0';
+   if (AddFlight(pfl, "FL04", 1800, longDestination) != ERROR) {
+       bdebug("FAILED: Accepted a destination exceeding MAX_DESTINATION.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Get flight number by valid destination */
+   //PrintFlightList(pfl);
+   bdebug("Test: Retrieving flight position by destination 'London'...");
+   pos = _GetFlightNumberByDestination(*pfl, "London");
+   if (pos != 2) {
+       bdebug("FAILED: Expected position 2 for 'London', got %d\n", pos);
+       iFailed = 1;
+   }
+
+   /* Test: Get flight number by invalid destination */
+   //PrintFlightList(pfl);
+   bdebug("Test: Retrieving flight position by destination 'Mars' (non-existent)...");
+   pos = _GetFlightNumberByDestination(*pfl, "Mars");
+   if (pos != -1) {
+       bdebug("FAILED: Expected -1 for non-existent destination, got %d\n", pos);
+       iFailed = 1;
+   }
+
+   /* Test: Accessing flight data at out-of-bounds index */
+   bdebug("Test: Accessing out-of-bounds flight list position...");
+   //PrintFlightList(pfl);
+   if (GetFlightDataByPosition(*pfl, pfl->iLength + 1) != NULL) {
+       bdebug("FAILED: Accessed out-of-bounds position in flight list.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Getting flight data at position 0 */
+   bdebug("Test: Getting flight data at position 0...");
+   //PrintFlightList(pfl);
+   data = GetFlightDataByPosition(*pfl, 0);
+   if (data == NULL || strcmp(data->szID, "FL03") != 0) {
+       bdebug("FAILED: Expected 'FL03' at position 0.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Attempting to remove non-existent flight */
+   bdebug("Test: Attempting to remove non-existent flight 'NONEXISTENT'...");
+   //PrintFlightList(pfl);
+   if (RemoveFlight(pfl, "NONEXISTENT") != ERROR) {
+       bdebug("FAILED: Removed a non-existent flight.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Removing valid flight */
+   bdebug("Test: Removing flight 'FL02'...");
+   PrintFlightList(pfl);
+   if (RemoveFlight(pfl, "FL02") != OK) {
+       bdebug("FAILED: Could not remove existing flight 'FL02'.\n");
+       iFailed = 1;
+   }
+
+   /* Confirm removal */
+   bdebug("Test: Confirming 'FL02' was removed...");
+   PrintFlightList(pfl);
+   pos = _GetFlightNumberByDestination(*pfl, "London");
+   if (pos != -1) {
+       bdebug("FAILED: Flight 'London' should have been removed.\n");
+       iFailed = 1;
+   }
+
+   /* Test: Destroying flight list */
+   bdebug("Test: Destroying flight list...");
+   if (DestroyFlightList(pfl) != OK) {
+       bdebug("FAILED: Could not destroy flight list.\n");
+       iFailed = 1;
+   }
+
+   bdebug("Finished internal flight list tests. %s\n", iFailed ? "There were errors." : "All tests passed.");
+   return iFailed;
 }
