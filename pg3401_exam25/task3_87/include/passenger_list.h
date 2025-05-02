@@ -62,7 +62,7 @@ PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, char szName[]);
  * */
 int RemovePassenger(PASSENGER_LIST *ppl, char szName[]);  
 
-void ChangePassengerSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat);
+void ChangeSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat);
 
 void PrintPassengerList(PASSENGER_LIST *ppl);
 

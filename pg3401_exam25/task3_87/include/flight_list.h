@@ -8,13 +8,13 @@
 *              abstractions.
 --------------------------------------------------*/
 
-#ifndef ___FLIGHT_LIST_H___ 
-#define ___FLIGHT_LIST_H___  
-
 /* Inclusion is in header so i dont have to redefine PASSENGER_LIST struct */
 #include "passenger_list.h"
 
-#define MAX_ID 4
+#ifndef ___FLIGHT_LIST_H___ 
+#define ___FLIGHT_LIST_H___  
+
+#define MAX_ID 5
 #define MAX_DESTINATION 1028
 #define MAX_SEATS 64
 
@@ -24,9 +24,8 @@
  * PREFIX: fd - (f)light (d)ata
  * */
 typedef struct _FLIGHT_DATA{
-   char szID[MAX_ID];
-   char szDestination[MAX_DESTINATION];
-   int iSeats[MAX_SEATS];
+   char szID[5];
+   char *pszDestination;
    int iDepartureTime;
    PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
@@ -62,7 +61,7 @@ FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n);
 int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]);
 
 /* List modification functions - return OK or ERROR */
-int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestination[]);
+int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestination[]);
 
 /* Removes a flight based on flight id */
 int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
@@ -72,6 +71,9 @@ void PrintPassengers(FLIGHT_DATA *pfd);
 /* Prints the flight list to the terminal */
 void PrintFlightList(FLIGHT_LIST *pfl);
 
-void InternalFlightListTest();
+int AddPassengerToFlight();
+int ChangePassengerSeat();
+
+int InternalFlightListTest();
 
 #endif /*ndef ___FLIGHT_LIST_H___  */ 
