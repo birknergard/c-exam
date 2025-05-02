@@ -1,4 +1,4 @@
-#include "./include/menu.h"
+#include "menu.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 /*
  * Private function for creating options. Takes a string and a function pointer.
  * */
-OPTION *CreateOption(char szTitle[], void (*funcAction)()){
+static OPTION *_CreateOption(char szTitle[], void (*funcAction)()){
 	OPTION *pNewOption = NULL;
 	int iTitleLength = strlen(szTitle);
 
@@ -23,6 +23,8 @@ OPTION *CreateOption(char szTitle[], void (*funcAction)()){
 	pNewOption->pszTitle = (char *) malloc(TITLE_BUFFER);
 	if(pNewOption->pszTitle == NULL){
 		berror("Malloc failed for newOptions->pszTitle.");
+		free(pNewOption);
+		pNewOption = NULL;
 	}
 
 	if(iTitleLength >= TITLE_BUFFER){
@@ -67,7 +69,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*funcAction)()){
 	OPTION **ppExtendedOptions = NULL;
 	int *piOptionCount = NULL; 
 
-	pNewOption = CreateOption(szTitle, funcAction);
+	pNewOption = _CreateOption(szTitle, funcAction);
 	piOptionCount = &(pMenu->iOptionCount);
 
 	/* If MENU is empty */

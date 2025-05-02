@@ -24,7 +24,6 @@ typedef struct _MENU {
 } MENU;
 
 
-OPTION *CreateOption(char *szTitle, void (*funcAction)());
 MENU *CreateMenu();
 int AddOption(MENU *pMenu, char *szTitle, void (*funcAction)());
 
