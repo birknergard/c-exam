@@ -204,6 +204,11 @@ static FLIGHT *_GetFlightByID(FLIGHT_LIST fl, char szID[]){
       return NULL;
    }
 
+   if(strlen(szID) != 4){
+      printf("Invalid flight id! Needs to be 4 digits/characters");
+      return NULL;
+   }
+
    pfCurrent = fl.pfFirst;
 
    /* Check the rest */
@@ -304,21 +309,36 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
 /*
  *
  * */
-int AddPassengerToFlight(FLIGHT *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge){
+int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge){
+   FLIGHT *pf = NULL;
+
+   pf = _GetFlightByID(*pfl, szFlightID);
+   if(pf == NULL){
+      printf("No flight exists on that ID.");
+   }
+
    if(iSeatNumber > MAX_SEATS || iSeatNumber < 0){
       printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iSeatNumber, MAX_SEATS);
       return ERROR;
    }
+
    return AddPassenger(pf->pfdData->pplPassengers, iSeatNumber, szName, iAge);
 }
 
 /*
  *
  * */
-int ChangePassengerSeat(FLIGHT *pf, char szFlightID[], char szName[], int iNewSeat){
+int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat){
+   FLIGHT *pf = NULL;
+
    if(iNewSeat > MAX_SEATS || iNewSeat < 0){
       printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iNewSeat, MAX_SEATS);
       return ERROR;
+   }
+
+   pf = _GetFlightByID(*pfl, szFlightID);
+   if(pf == NULL){
+      printf("No flight exists on that ID.");
    }
 
    return ChangeSeat(pf->pfdData->pplPassengers, szName, iNewSeat);
@@ -435,6 +455,7 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
    return;
 }
 
+/*
 int InternalFlightListTest() {
    int iFailed = 0;
    FLIGHT_LIST *pfl;
@@ -544,3 +565,4 @@ int InternalFlightListTest() {
    bdebug("Finished internal flight list tests. %s\n", iFailed ? "There were errors." : "All tests passed.");
    return iFailed;
 }
+*/

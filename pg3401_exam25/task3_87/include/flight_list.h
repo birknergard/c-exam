@@ -72,8 +72,8 @@ void PrintPassengers(FLIGHT_DATA *pfd);
 int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
 
-int AddPassengerToFlight(FLIGHT *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge);
-int ChangePassengerSeat(FLIGHT *pf, char szFlightID[], char szName[], int iNewSeat);
+int AddPassengerToFlight(FLIGHT_LIST *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge);
+int ChangePassengerSeat(FLIGHT_LIST *pf, char szFlightID[], char szName[], int iNewSeat);
 
 int InternalFlightListTest();
 
