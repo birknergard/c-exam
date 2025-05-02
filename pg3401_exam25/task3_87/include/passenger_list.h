@@ -64,6 +64,6 @@ int RemovePassenger(PASSENGER_LIST *ppl, char szName[]);
 
 void ChangePassengerSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat);
 
-void PrintList(PASSENGER_LIST *ppl);
+void PrintPassengerList(PASSENGER_LIST *ppl);
 
 #endif /*ndef ___PASSENGER_LIST_H___ */

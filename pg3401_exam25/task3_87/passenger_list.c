@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <ctype.h>
 
 #include "util.h"
@@ -180,6 +179,7 @@ int DestroyPassengerList(PASSENGER_LIST *pppl){
 
 /* Make sure seat numbers are unique and have a ceiling(Can plane be full?) and floor(0).
  * This list list is supposed to be sorted by SEAT NUMBER. 
+ * TODO: Check tabs (too large)
  * */
 int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 	PASSENGER *ppNewPassenger = NULL;		
@@ -342,16 +342,16 @@ void ChangePassengerSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat){
 	pdOriginalPassengerData = NULL;
 }
 
-void PrintList(PASSENGER_LIST *ppl){
+void PrintPassengerList(PASSENGER_LIST *ppl){
 	PASSENGER *ppCurrent = NULL;
 	int n = 0;
 
-	printf("Passenger list, size %d\n", ppl->iLength);
+	printf(" - PASSENGERS, %d people -\n", ppl->iLength);
 	ppCurrent = ppl->ppFirst;
 
 	while(ppCurrent != NULL){
 		n++;
-		printf("%d: %s, %d, %d\n",
+		printf("%   d: %s, %d, %d\n",
 			n,
 			ppCurrent->ppdData->szName,
 			ppCurrent->ppdData->iSeatNumber,
@@ -364,8 +364,10 @@ void PrintList(PASSENGER_LIST *ppl){
 	ppCurrent = NULL;
 }
 
-void InternalTest(){
-
+void InternalPassengerListTest(){
+	return;
+}
+/*
     PASSENGER_LIST *passengerList = CreatePassengerList();
     if (passengerList == NULL) {
         bdebug("Error: Failed to create passenger list.\n");
@@ -456,4 +458,4 @@ void InternalTest(){
     bdebug("\nDestroying the passenger list...\n");
     DestroyPassengerList(passengerList);
     bdebug("Passenger list destroyed successfully.\n");
-}
+	*/

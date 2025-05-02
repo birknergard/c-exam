@@ -11,6 +11,7 @@
 #ifndef ___FLIGHT_LIST_H___ 
 #define ___FLIGHT_LIST_H___  
 
+/* Inclusion is in header so i dont have to redefine PASSENGER_LIST struct */
 #include "passenger_list.h"
 
 #define MAX_ID 4
@@ -53,18 +54,24 @@ typedef struct _FLIGHT_LIST {
 
 /* Creation functions */
 FLIGHT_LIST *CreateFlightList();
-int DestroyFlightList(FLIGHT_LIST **ppfl);
+int DestroyFlightList(FLIGHT_LIST *ppfl);
 
 /* Getter functions */
-FLIGHT_DATA *GetFlightData(FLIGHT_LIST fl, int n);
+FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n);
+
+int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]);
 
 /* List modification functions - return OK or ERROR */
-int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDestination[], int iDepartureTime);
+int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestination[]);
 
 /* Removes a flight based on flight id */
-int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]);
+int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
+void PrintPassengers(FLIGHT_DATA *pfd);
+
+/* Prints the flight list to the terminal */
 void PrintFlightList(FLIGHT_LIST *pfl);
+
 void InternalFlightListTest();
 
 #endif /*ndef ___FLIGHT_LIST_H___  */ 
