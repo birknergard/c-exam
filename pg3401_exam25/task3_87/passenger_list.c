@@ -9,14 +9,13 @@
 #include "debug.h"
 
 /*
- *
+ * This function creates a PASSENGER*, given a passengers seat number, name, and age.
  * */
 static PASSENGER *_CreatePassenger(int iSeatNumber, char szName[], int iAge){
 	/* Declare new passenger pointer */
 	PASSENGER *ppNew = NULL; 
    int iNameLength = strlen(szName); 
 
-	bdebug("Creating passenger\n");
 	/* Checks that chosen name isn't too long */
 	if(iNameLength >= MAX_NAME){
 		printf("Chosen name is too long.\n");
@@ -66,7 +65,8 @@ static PASSENGER *_CreatePassenger(int iSeatNumber, char szName[], int iAge){
 }
 
 /*
- *
+ * This function deallocates/frees a given PASSENGER* and all its corresponding data.
+ * It returns 0 if successful, otherwise it returns 1.
  * */
 static int _DestroyPassenger(PASSENGER *pp){
 	/* Verify pointer is allocated */
