@@ -119,7 +119,8 @@ PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, char szName[]){
 	ppPassenger = _GetPassenger(ppl, szName);
 
 	if(ppPassenger == NULL){
-		berror("Passenger was not found.\n");
+      /* Print is handled outside of function scope */
+		//berror("Passenger was not found.\n");
 		return NULL;
 	}
 
@@ -177,9 +178,8 @@ int DestroyPassengerList(PASSENGER_LIST *pppl){
 	return OK;
 }
 
-/* Make sure seat numbers are unique and have a ceiling(Can plane be full?) and floor(0).
+/*
  * This list list is supposed to be sorted by SEAT NUMBER. 
- * TODO: Check tabs (too large)
  * */
 int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 	PASSENGER *ppNewPassenger = NULL;		
@@ -229,7 +229,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 
 		/* This should be prevented before this function is invoked. This is here as a precaution. */
 		if(ppCurrent->ppdData->iSeatNumber == iSeatNumber){
-			berror("Duplicate seat number not allowed in passenger list.\n");
+			printf("Seat number %d is taken.\n", iSeatNumber);
 			free(ppNewPassenger);
 			iStatus = ERROR;
 			break;
@@ -241,6 +241,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 			if(ppCurrent->ppNext == NULL){
 				ppCurrent->ppNext = ppNewPassenger;
 				ppl->iLength++;
+            iStatus = OK;
 				break;
 			} 
 
@@ -253,6 +254,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 			ppPrev->ppNext = ppNewPassenger;
 			ppNewPassenger->ppNext = ppCurrent;
 			ppl->iLength++;
+         iStatus = OK;
 			break;
 		}
 	}
@@ -326,32 +328,53 @@ int RemovePassenger(PASSENGER_LIST *ppl, char szName[]){
 }
 
 /* Assuming we handle the case of a duplicate seat number in the flight_list datastruct */
-void ChangeSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat){
+int ChangeSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat){
 	PASSENGER_DATA *pdOriginalPassengerData = NULL;
-	int iAge;
+	int iAge, iOriginalSeat, iStatus = OK;
 
 	pdOriginalPassengerData = GetPassengerData(ppl, szName);
+
 	if(pdOriginalPassengerData != NULL){
+      /* Checks if user attempted to change to the same seat that was already stored */
+      if(pdOriginalPassengerData->iSeatNumber == iNewSeat){
+         printf("%s already has that seat.\n", szName);
+
+         pdOriginalPassengerData = NULL;
+         return ERROR;
+      }
+
 		iAge = pdOriginalPassengerData->iAge;
-		RemovePassenger(ppl, szName);
-		AddPassenger(ppl, iNewSeat, szName, iAge);
+      iOriginalSeat = pdOriginalPassengerData->iSeatNumber;
+      pdOriginalPassengerData = NULL;
+
+		if((iStatus = RemovePassenger(ppl, szName)) == ERROR){
+         return iStatus;
+      } 
+
+	   if((iStatus = AddPassenger(ppl, iNewSeat, szName, iAge)) == ERROR){
+         /* Puts the passenger back to their original spot */
+         AddPassenger(ppl, iOriginalSeat, szName, iAge);
+         return iStatus;
+      } 
 	} else {
 		printf("Passenger doesn't exist.\n");	
+      return ERROR;
 	}
 
 	pdOriginalPassengerData = NULL;
+   return iStatus;
 }
 
 void PrintPassengerList(PASSENGER_LIST *ppl){
 	PASSENGER *ppCurrent = NULL;
 	int n = 0;
 
-	printf("   > PASSENGERS, %d people -\n", ppl->iLength);
+	printf("   > PASSENGERS, %d people <\n", ppl->iLength);
 	ppCurrent = ppl->ppFirst;
 
 	while(ppCurrent != NULL){
 		n++;
-		printf("%d: %s, %d, %d\n",
+		printf("   %d: %s, %d, %d\n",
 	 n,
 	 ppCurrent->ppdData->szName,
 	 ppCurrent->ppdData->iSeatNumber,
@@ -363,99 +386,3 @@ void PrintPassengerList(PASSENGER_LIST *ppl){
 
 	ppCurrent = NULL;
 }
-
-void InternalPassengerListTest(){
-	return;
-}
-/*
-    PASSENGER_LIST *passengerList = CreatePassengerList();
-    if (passengerList == NULL) {
-	bdebug("Error: Failed to create passenger list.\n");
-	return;
-    }
-    bdebug("Created a new passenger list.\n");
-
-    // Add passengers with different seat numbers to test ordering
-    bdebug("\nAdding passengers with varying seat numbers...\n");
-
-    // Add passenger with seat number 2
-    if (AddPassenger(passengerList, 2, "John Doe", 30) == OK) {
-	bdebug("Passenger John Doe added (Seat 2).\n");
-    }
-
-    // Add passenger with seat number 5
-    if (AddPassenger(passengerList, 5, "Jane Smith", 25) == OK) {
-	bdebug("Passenger Jane Smith added (Seat 5).\n");
-    }
-
-    // Add passenger with seat number 1 (this should be added at the beginning)
-    if (AddPassenger(passengerList, 1, "Alice Johnson", 35) == OK) {
-	bdebug("Passenger Alice Johnson added (Seat 1).\n");
-    }
-
-    // Add passenger with seat number 3 (this should go between 2 and 5)
-    if (AddPassenger(passengerList, 3, "Bob Lee", 28) == OK) {
-	bdebug("Passenger Bob Lee added (Seat 3).\n");
-    }
-
-    // Add passenger with seat number 4 (this should go between 3 and 5)
-    if (AddPassenger(passengerList, 4, "Charlie Brown", 40) == OK) {
-	bdebug("Passenger Charlie Brown added (Seat 4).\n");
-    }
-
-    // Print the list of passengers to check the order
-    bdebug("\nPassenger List (after adding passengers with varying seat numbers):\n");
-    PrintList(passengerList);
-
-    // Verify the list is sorted by seat number
-    bdebug("\nVerifying seat number order:\n");
-    PASSENGER *ppCurrent = passengerList->ppFirst;
-    int previousSeatNumber = 0;
-    int isOrdered = 1;
-    while (ppCurrent != NULL) {
-	if (ppCurrent->ppdData->iSeatNumber < previousSeatNumber) {
-	    bdebug("Error: Seat numbers are not in order! Seat number %d follows seat number %d.\n",
-		ppCurrent->ppdData->iSeatNumber, previousSeatNumber);
-	    isOrdered = 0;
-	    break;
-	}
-	previousSeatNumber = ppCurrent->ppdData->iSeatNumber;
-	ppCurrent = ppCurrent->ppNext;
-    }
-    if (isOrdered) {
-	bdebug("Seat numbers are correctly ordered.\n");
-    }
-
-    // Remove passengers and verify the list updates correctly
-    bdebug("\nRemoving a few passengers...\n");
-    RemovePassenger(passengerList, "John Doe");
-    bdebug("Removed John Doe.\n");
-
-    // Print the list after removal
-    bdebug("\nPassenger List After Removing John Doe:\n");
-    PrintList(passengerList);
-
-    // Verify the seat numbers are still ordered after removal
-    bdebug("\nVerifying seat number order after removal:\n");
-    ppCurrent = passengerList->ppFirst;
-    previousSeatNumber = 0;
-    isOrdered = 1;
-    while (ppCurrent != NULL) {
-	if (ppCurrent->ppdData->iSeatNumber < previousSeatNumber) {
-	    bdebug("Error: Seat numbers are not in order! Seat number %d follows seat number %d.\n",
-		ppCurrent->ppdData->iSeatNumber, previousSeatNumber);
-	    isOrdered = 0;
-	    break;
-	}
-	previousSeatNumber = ppCurrent->ppdData->iSeatNumber;
-	ppCurrent = ppCurrent->ppNext;
-    }
-    if (isOrdered) {
-	bdebug("Seat numbers are still correctly ordered after removal.\n");
-    }
-
-    // Destroy the passenger list
-    bdebug("\nDestroying the passenger list...\n");
-    DestroyPassengerList(passengerList);
-    bdebug("Passenger list destroyed successfully.\n");
-	*/

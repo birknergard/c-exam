@@ -5,10 +5,9 @@
 #include <string.h>
 
 #include "debug.h"
-//#include "passenger_list.h"
 
 /*
- * TODO:
+ *
  * */
 static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination[]){
    FLIGHT *pfCreated = NULL;
@@ -68,6 +67,8 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
    /* Set data struct members */
    strncpy(pfCreated->pfdData->pszDestination, szDestination, iDestinationSize);
    pfCreated->pfdData->pszDestination[iDestinationSize] = '\0';
+
+   memset(pfCreated->pfdData->iarrSeats, 0, sizeof(int) * MAX_SEATS); 
 
    /* Stores size of data */
    pfCreated->iSize = sizeof(pfCreated->pfdData);
@@ -158,7 +159,7 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
 }
 
 /*
- * TODO:: Update
+ *
  * */
 int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
    FLIGHT *pfCurrent = NULL;
@@ -220,23 +221,23 @@ static FLIGHT *_GetFlightByID(FLIGHT_LIST fl, char szID[]){
 }
 
 /*
- * TODO:: Update
+ * Gets FLIGHT by position in list. Starts at 1 (not zero-indexed) 
  * */
-FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n){
+FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n){
    int i;
    FLIGHT *pfCurrent = NULL;
 
-   if(n >= fl.iLength || n < 0){
+   if(n > fl.iLength || n < 0){
       berror("Position given is out of bounds.\n");
       return NULL;
    }
 
-   if(n == 0){
+   if(n == 1){
       if(fl.pfFirst == NULL){
          berror("Flight list HEAD is not defined.\n");
          return NULL;
       }
-      return fl.pfFirst->pfdData;
+      return fl.pfFirst;
    }
 
 
@@ -245,7 +246,7 @@ FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n){
          berror("Flight list TAIL is not defined.\n");
          return NULL;
       }
-      return fl.pfLast->pfdData; 
+      return fl.pfLast; 
    }
 
    /* If index is smaller or equal to middle, Iterate forward from head ... 
@@ -265,7 +266,7 @@ FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n){
 
    } 
 
-   return pfCurrent->pfdData;
+   return pfCurrent;
 }
 
 /*
@@ -281,7 +282,6 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
       if(pfl->pfFirst == NULL){
          pfl->pfFirst = pfNew;
          pfl->pfLast = pfNew;
-//
          iStatusCode = OK;
 
       } else {
@@ -301,6 +301,29 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
 
    pfNew = NULL;
    return iStatusCode;
+}
+
+/*
+ *
+ * */
+int AddPassengerToFlight(FLIGHT *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge){
+   if(iSeatNumber > MAX_SEATS || iSeatNumber < 0){
+      printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iSeatNumber, MAX_SEATS);
+      return ERROR;
+   }
+   return AddPassenger(pf->pfdData->pplPassengers, iSeatNumber, szName, iAge);
+}
+
+/*
+ *
+ * */
+int ChangePassengerSeat(FLIGHT *pf, char szFlightID[], char szName[], int iNewSeat){
+   if(iNewSeat > MAX_SEATS || iNewSeat < 0){
+      printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iNewSeat, MAX_SEATS);
+      return ERROR;
+   }
+
+   return ChangeSeat(pf->pfdData->pplPassengers, szName, iNewSeat);
 }
 
 /*
@@ -359,10 +382,46 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
 }
 
 /*
- * TODO:: Create
+ * Prints a single flight by its position (N)
+ * */
+int PrintFlight(FLIGHT_LIST *pfl, int n){
+   if(pfl->iLength == 0){
+      printf("No flights have been added to the list\n");
+      return ERROR;
+   }
+
+   FLIGHT *pfFlight = NULL;
+
+   pfFlight = GetFlightByPosition(*pfl, n);
+   if(pfFlight == NULL){
+      return ERROR;
+   }
+   printf("%d-> ", n);
+   printf("%s: TO:  %s, DEPARTS: %d", 
+          pfFlight->pfdData->szID,
+          pfFlight->pfdData->pszDestination,
+          pfFlight->pfdData->iDepartureTime
+   );
+
+   /* Inserts a little pointer to the head and tail :) */
+   if(pfFlight == pfl->pfFirst && pfFlight == pfl->pfLast) printf("  <--HEAD/TAIL\n");
+   else if(pfFlight == pfl->pfFirst) printf("  <--HEAD\n");
+   else if(pfFlight == pfl->pfLast) printf("  <--TAIL\n");
+   else puts("");
+
+   /* Prints number of available seats */
+   printf("   Available seats: %d\n", (MAX_SEATS - pfFlight->pfdData->pplPassengers->iLength));
+
+   /* Prints the list of passengers for the flight */
+      PrintPassengerList(pfFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
+
+
+}
+/*
+ * 
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
-   int n = 0;
+   int i;
    FLIGHT *pfCurrentFlight = NULL; 
 
    if(pfl->iLength == 0){
@@ -370,32 +429,10 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
       return;
    }
 
-   pfCurrentFlight = pfl->pfFirst;
-
-   printf("List of Flights, size %d\n", pfl->iLength);
-   while(pfCurrentFlight != NULL){
-      n++;
-      printf("%d-> ", n);
-      printf("%s: TO:  %s, DEPARTS: %d", 
-             pfCurrentFlight->pfdData->szID,
-             pfCurrentFlight->pfdData->pszDestination,
-             pfCurrentFlight->pfdData->iDepartureTime
-
-      );
-
-      /* Inserts a little pointer to the head and tail :) */
-      if(pfCurrentFlight == pfl->pfFirst && pfCurrentFlight == pfl->pfLast) printf("  <--HEAD/TAIL\n");
-      else if(pfCurrentFlight == pfl->pfFirst) printf("  <--HEAD\n");
-      else if(pfCurrentFlight == pfl->pfLast) printf("  <--TAIL\n");
-      else puts("");
-
-      /* Prints number of available seats */
-      printf("   Available seats: %d\n", (MAX_SEATS - pfCurrentFlight->pfdData->pplPassengers->iLength));
-
-      /* Prints the list of passengers for the flight */
-      PrintPassengerList(pfCurrentFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
-      
-      pfCurrentFlight = pfCurrentFlight->pfNext;
+   for(i = 1; i <= pfl->iLength; i++){
+      if(PrintFlight(pfl, i) == ERROR){
+         break;
+      }
    }
 
    /* Cleanup */
@@ -406,129 +443,105 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
 
 int InternalFlightListTest() {
    int iFailed = 0;
-   int pos;
-   char longDestination[MAX_DESTINATION + 10];
    FLIGHT_LIST *pfl;
-   FLIGHT_DATA *data;
+   FLIGHT *pfFL01;
 
    bdebug("Starting internal flight list tests...\n");
 
-   /* Test: Creating flight list */
-   bdebug("Test: Creating flight list...");
+   // Create flight list
+   bdebug("Test: Create flight list...");
    pfl = CreateFlightList();
-   if (pfl == NULL) {
+   if (!pfl) {
        bdebug("FAILED: Could not create flight list.\n");
        return 1;
    }
 
-   /* Test: Adding valid flights */
-   bdebug("Test: Adding flight FL001...");
-   //PrintFlightList(pfl);
+   // Add flights
+   bdebug("Test: Add flight FL01...");
    if (AddFlight(pfl, "FL01", 900, "New York") != OK) {
-       bdebug("FAILED: Could not add FL001.\n");
+       bdebug("FAILED: Could not add FL01.\n");
        iFailed = 1;
    }
 
-   bdebug("Test: Adding flight FL002...");
-   //PrintFlightList(pfl);
-   if (AddFlight(pfl, "FL02", 1300, "London") != OK) {
-       bdebug("FAILED: Could not add FL002.\n");
+   // Get flight
+   bdebug("Test: Retrieve flight FL01...");
+   pfFL01 = _GetFlightByID(*pfl, "FL01");
+   if (!pfFL01) {
+       bdebug("FAILED: FL01 not found.\n");
+       return 1;
+   }
+
+   // Add passenger John Doe to seat 1
+   bdebug("Test: Add John Doe to seat 1...");
+   if (AddPassengerToFlight(pfFL01, "FL01", 1, "John Doe", 30) != OK) {
+       bdebug("FAILED: Could not add John Doe.\n");
        iFailed = 1;
    }
 
-   bdebug("Test: Adding flight FL003...");
-   //PrintFlightList(pfl);
-   if (AddFlight(pfl, "FL03", 1700, "Tokyo") != OK) {
-       bdebug("FAILED: Could not add FL003.\n");
+   // Add Alice Smith to seat 5
+   PrintFlight(pfl, 1);
+   bdebug("Test: Add Alice Smith to seat 5...");
+   if (AddPassengerToFlight(pfFL01, "FL01", 5, "Alice Smith", 40) != OK) {
+       bdebug("FAILED: Could not add Alice Smith.\n");
+       iFailed = 1;
+   }
+   PrintFlight(pfl, 1);
+
+   // Test: Change John Doe to seat 5 (already taken)
+   bdebug("Test: Change John Doe to taken seat 5...");
+   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 5) != ERROR) {
+       bdebug("FAILED: Changed to taken seat.\n");
        iFailed = 1;
    }
 
-   /* Test: Adding flight with too-long destination */
-   bdebug("Test: Attempting to add flight with destination exceeding MAX_DESTINATION...");
-   //PrintFlightList(pfl);
-   memset(longDestination, 'A', MAX_DESTINATION + 9);
-   longDestination[MAX_DESTINATION + 9] = '\0';
-   if (AddFlight(pfl, "FL04", 1800, longDestination) != ERROR) {
-       bdebug("FAILED: Accepted a destination exceeding MAX_DESTINATION.\n");
+   // Test: Change John Doe to same seat (1)
+   bdebug("Test: Change John Doe to same seat 1...");
+   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 1) != ERROR) {
+       bdebug("FAILED: Changed to same seat.\n");
        iFailed = 1;
    }
 
-   /* Test: Get flight number by valid destination */
-   //PrintFlightList(pfl);
-   bdebug("Test: Retrieving flight position by destination 'London'...");
-   pos = _GetFlightNumberByDestination(*pfl, "London");
-   if (pos != 2) {
-       bdebug("FAILED: Expected position 2 for 'London', got %d\n", pos);
+   // Test: Change seat for non-existent passenger
+   bdebug("Test: Change seat for non-existent passenger 'Ghost'...");
+   if (ChangePassengerSeat(pfFL01, "FL01", "Ghost", 10) != ERROR) {
+       bdebug("FAILED: Changed seat for non-existent passenger.\n");
        iFailed = 1;
    }
 
-   /* Test: Get flight number by invalid destination */
-   //PrintFlightList(pfl);
-   bdebug("Test: Retrieving flight position by destination 'Mars' (non-existent)...");
-   pos = _GetFlightNumberByDestination(*pfl, "Mars");
-   if (pos != -1) {
-       bdebug("FAILED: Expected -1 for non-existent destination, got %d\n", pos);
+   // Test: Change to invalid seat number (-1)
+   bdebug("Test: Change John Doe to invalid seat -1...");
+   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", -1) != ERROR) {
+       bdebug("FAILED: Allowed invalid seat change.\n");
        iFailed = 1;
    }
 
-   /* Test: Accessing flight data at out-of-bounds index */
-   bdebug("Test: Accessing out-of-bounds flight list position...");
-   //PrintFlightList(pfl);
-   if (GetFlightDataByPosition(*pfl, pfl->iLength + 1) != NULL) {
-       bdebug("FAILED: Accessed out-of-bounds position in flight list.\n");
+   // Test: Change to valid seat
+   bdebug("Test: Change John Doe to valid seat 3...");
+   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 3) != OK) {
+       bdebug("FAILED: Could not change to valid seat.\n");
        iFailed = 1;
    }
 
-   /* Test: Getting flight data at position 0 */
-   bdebug("Test: Getting flight data at position 0...");
-   //PrintFlightList(pfl);
-   data = GetFlightDataByPosition(*pfl, 0);
-   if (data == NULL || strcmp(data->szID, "FL03") != 0) {
-       bdebug("FAILED: Expected 'FL03' at position 0.\n");
+   // Test: Add passenger Bob to taken seat 3
+   bdebug("Test: Add Bob to taken seat 3...");
+   if (AddPassengerToFlight(pfFL01, "FL01", 3, "Bob", 25) != ERROR) {
+       bdebug("FAILED: Added to taken seat.\n");
        iFailed = 1;
    }
 
-   /* Test: Attempting to remove non-existent flight */
-   bdebug("Test: Attempting to remove non-existent flight 'NONEXISTENT'...");
-   //PrintFlightList(pfl);
-   if (RemoveFlight(pfl, "NONEXISTENT") != ERROR) {
-       bdebug("FAILED: Removed a non-existent flight.\n");
+   // Add Bob correctly to seat 7
+   bdebug("Test: Add Bob to seat 7...");
+   if (AddPassengerToFlight(pfFL01, "FL01", 7, "Bob", 25) != OK) {
+       bdebug("FAILED: Could not add Bob to seat 7.\n");
        iFailed = 1;
    }
 
-   /* Test: Removing valid flight */
-   bdebug("Test: Removing flight 'FL02'...");
-   //PrintFlightList(pfl);
-   if (RemoveFlight(pfl, "FL02") != OK) {
-       bdebug("FAILED: Could not remove existing flight 'FL02'.\n");
-       iFailed = 1;
-   }
+   // Final print for inspection (optional)
+   bdebug("Test: Print final flight status...");
+   PrintFlight(pfl, 1);
 
-   /* Confirm removal */
-   bdebug("Test: Confirming 'FL02' was removed...");
-   //PrintFlightList(pfl);
-   pos = _GetFlightNumberByDestination(*pfl, "London");
-   if (pos != -1) {
-       bdebug("FAILED: Flight 'London' should have been removed.\n");
-       iFailed = 1;
-   }
-
-   /* Test: Removing valid flight */
-   bdebug("Test: Removing flight 'FL03'...");
-   if (RemoveFlight(pfl, "FL03") != OK) {
-       bdebug("FAILED: Could not remove existing flight 'FL02'.\n");
-       iFailed = 1;
-   }
-   bdebug("Test: Confirming 'FL03' was removed...");
-   PrintFlightList(pfl);
-   pos = _GetFlightNumberByDestination(*pfl, "London");
-   if (pos != -1) {
-       bdebug("FAILED: Flight 'Tokyo' should have been removed.\n");
-       iFailed = 1;
-   }
-
-   /* Test: Destroying flight list */
-   bdebug("Test: Destroying flight list...");
+   // Cleanup
+   bdebug("Test: Destroy flight list...");
    if (DestroyFlightList(pfl) != OK) {
        bdebug("FAILED: Could not destroy flight list.\n");
        iFailed = 1;

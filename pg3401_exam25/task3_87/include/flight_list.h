@@ -24,9 +24,10 @@
  * PREFIX: fd - (f)light (d)ata
  * */
 typedef struct _FLIGHT_DATA{
-   char szID[5];
+   char szID[MAX_ID];
    char *pszDestination;
    int iDepartureTime;
+   int iarrSeats[MAX_SEATS];
    PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
 
@@ -56,7 +57,7 @@ FLIGHT_LIST *CreateFlightList();
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
 /* Getter functions */
-FLIGHT_DATA *GetFlightDataByPosition(FLIGHT_LIST fl, int n);
+FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n);
 
 int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]);
 
@@ -69,10 +70,11 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 void PrintPassengers(FLIGHT_DATA *pfd);
 
 /* Prints the flight list to the terminal */
+int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
 
-int AddPassengerToFlight();
-int ChangePassengerSeat();
+int AddPassengerToFlight(FLIGHT *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge);
+int ChangePassengerSeat(FLIGHT *pf, char szFlightID[], char szName[], int iNewSeat);
 
 int InternalFlightListTest();
 
