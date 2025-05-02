@@ -13,7 +13,9 @@
 
 #include "passenger_list.h"
 
-#define ID_SIZE 4
+#define MAX_ID 4
+#define MAX_DESTINATION 1028
+#define MAX_SEATS 64
 
 #pragma pack(1)
 
@@ -21,8 +23,9 @@
  * PREFIX: fd - (f)light (d)ata
  * */
 typedef struct _FLIGHT_DATA{
-   char szFlightID[ID_SIZE];
-   int iSeats;
+   char szID[MAX_ID];
+   char szDestination[MAX_DESTINATION];
+   int iSeats[MAX_SEATS];
    int iDepartureTime;
    PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
@@ -56,7 +59,7 @@ int DestroyFlightList(FLIGHT_LIST **ppfl);
 FLIGHT_DATA *GetFlightData(FLIGHT_LIST fl, int n);
 
 /* List modification functions - return OK or ERROR */
-int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd);
+int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDestination[], int iDepartureTime);
 
 /* Removes a flight based on flight id */
 int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]);

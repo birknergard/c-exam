@@ -10,7 +10,7 @@
 /*
  * TODO:
  * */
-static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination[]){
+static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    FLIGHT *pfCreated = NULL;
 
    /* Allocate new flight */
@@ -19,11 +19,10 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
       berror("Failed malloc in CreateFlight()");
       return NULL;
    }
-   /* Initialize pointers to null */
+   /* Set pointers to null */
    pfCreated->pfNext = NULL;
    pfCreated->pfPrev = NULL;
 
-   /* Allocate data pointer */
    pfCreated->pfdData = (FLIGHT_DATA *) malloc(sizeof(FLIGHT_DATA));
    if(pfCreated->pfdData == NULL){
       berror("Failed malloc in CreateFlight() struct fdData\n");
@@ -31,29 +30,11 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
       pfCreated = NULL;
       return pfCreated;
    }
-   memset(pfCreated->pfdData, 0, sizeof(FLIGHT_DATA));
-   memset(pfCreated->pfdData->iSeats, 0, sizeof(FLIGHT_DATA));
 
-   pfCreated->pfdData = iDepartureTime;
-
-   strncpy(pfdData->szID, szID, MAX_ID);
-   pfdData->szID[MAX_ID] = '\0';
-
-   if(strlen(szDestination) >= MAX_DESTINATION){
-      free(pfCreated->pfdData);
-      free(pfCreated);
-      pfCreated = NULL;
-      return NULL;
-   }
-
-   strncpy(pfdData->szDestination, szDestination, strlen(szDetstination));
-   pfdData->szID[MAX_ID] = '\0';
-
-   pfCreated->iSize = sizeof(FLIGHT_DATA);
-
-   pfCreated->pfdData->pplPassengers = CreatePassengerList();
-   if(pfCreated->pfdData->pplPassengers == NULL){
-      berror("Failed to create passenger list.");
+   pfCreated->iSize = sizeof(fd);
+   memcpy(pfCreated->pfdData, &fd, pfCreated->iSize);
+   if(pfCreated->pfdData == NULL){
+      berror("Failed memcpy in CreateFlight().");
       free(pfCreated->pfdData);
       free(pfCreated);
       pfCreated = NULL;
@@ -66,20 +47,7 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
  * TODO:
  * */
 static int DestroyFlight(FLIGHT *pf){
-   int iPListDestroyed;
 
-   if(pf == NULL){
-      return ERROR; 
-   }
-
-   if((iPListDestroyed = DestroyPassengerList(pf->pfdData->pplPassengers)) == 1){
-      return ERROR;
-   };
-
-   free(pf->pfdData);
-   free(pf);
-
-   return OK;
 }
 
 FLIGHT_LIST *CreateFlightList(){
@@ -102,7 +70,7 @@ FLIGHT_LIST *CreateFlightList(){
 }
 
 /*
- * TODO:: Take a look
+ * TODO:
  * */
 int DestroyFlightList(FLIGHT_LIST **ppfl){
    FLIGHT *pfCurrent = (*ppfl)->pfFirst;   
@@ -134,9 +102,9 @@ int DestroyFlightList(FLIGHT_LIST **ppfl){
 }
 
 /*
- * TODO:: Update
+ * TODO:
  * */
-int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDestination[], int iDepartureTime){
+int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd){
    int iStatusCode = ERROR;
    FLIGHT *pfNew = _CreateFlight(fd);
 
@@ -164,17 +132,15 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDestination[], int iDepartur
    return iStatusCode;
 }
 
-/* TODO:: Create*/
+/* TODO:*/
 int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]){
    int iStatusCode = ERROR;
-
-
 
    return iStatusCode;
 }
 
 /*
- * TODO:: Update
+ * TODO:
  * */
 static FLIGHT *_GetFlight(FLIGHT_LIST fl, int n){
    int i;
@@ -222,19 +188,19 @@ static FLIGHT *_GetFlight(FLIGHT_LIST fl, int n){
 }
 
 /*
- * TODO:: Update, split the methods from one line into several to avoid major bugs
+ * TODO:
  * */
 FLIGHT_DATA *GetFlightData(FLIGHT_LIST fl, int n){
    return _GetFlight(fl, n)->pfdData; 
 }
 
 /*
- * TODO:: Create
+ * TODO:
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
 
 }
-/*
+
 void InternalFlightListTest(){
 
     // Step 1: Create list
@@ -306,4 +272,3 @@ void InternalFlightListTest(){
         printf("Error destroying flight list.\n");
     }
 }
-*/
