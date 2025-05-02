@@ -10,7 +10,7 @@
 /*
  * Private function for creating options. Takes a string and a function pointer.
  * */
-static OPTION *_CreateOption(char szTitle[], void (*vfAction)()){
+static OPTION *_CreateOption(char szTitle[], void (*vfAction)(void *vpStruct)){
 	OPTION *pNewOption = NULL;
 	int iTitleLength = strlen(szTitle);
 
@@ -44,7 +44,7 @@ static OPTION *_CreateOption(char szTitle[], void (*vfAction)()){
 /*
  * Creates an empty menu struct.
  * */
-MENU *CreateMenu(){
+MENU *CreateMenu(void *vpStruct){
 	MENU *pNewMenu = NULL;	
 
 	pNewMenu = (MENU *) malloc(sizeof(MENU));
@@ -52,6 +52,7 @@ MENU *CreateMenu(){
 		berror("Malloc to pNewMenu failed.");
 		return NULL;
 	}
+	pNewMenu->vpStruct = vpStruct;
 	pNewMenu->pOptions = NULL;
 	pNewMenu->iOptionCount = 0;
 
@@ -63,7 +64,7 @@ MENU *CreateMenu(){
  *  It requires the menu struct as a pointer, 
  *  a title (string) and a function(ptr) which runs the option.
  * */
-int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)()){
+int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	/* Declaring variables */
 	OPTION *pNewOption = NULL;
 	OPTION **ppExtendedOptions = NULL;
@@ -146,7 +147,7 @@ int DestroyMenu(MENU *pMenu){
  *	Executes an options given action by indexing
  * */
 int ExecuteAction(MENU pMenu, int iSelection){
-	pMenu.pOptions[iSelection - 1]->vfAction();
+	pMenu.pOptions[iSelection - 1]->vfAction(pMenu.vpStruct);
 	return OK;
 }
 

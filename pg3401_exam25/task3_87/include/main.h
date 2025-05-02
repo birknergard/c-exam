@@ -4,42 +4,42 @@
 /*
  * Option 1
  * */
-void OptOne();
+void OptOne(void *vpflFlightList);
 
 /*
  * Option 2
  * */
-void OptTwo();
+void OptTwo(void *vpflFlightList);
 
 /*
  * Option 3
  * */
-void OptThree();
+void OptThree(void *vpflFlightList);
 
 /*
  * Option 4
  * */
-void OptFour();
+void OptFour(void *vpflFlightList);
 
 /*
  * Option 5
  * */
-void OptFive();
+void OptFive(void *vpflFlightList);
 
 /*
  * Option 6
  * */
-void OptSix();
+void OptSix(void *vpflFlightList);
 
 /*
  * Option 7
  * */
-void OptSeven();
+void OptSeven(void *vpflFlightList);
 
 /*
  * Option 8
  * */
-void OptEight();
+void OptEight(void *vpflFlightList);
 
 #endif /*ndef ___TASK3_MAIN_H___ */
 

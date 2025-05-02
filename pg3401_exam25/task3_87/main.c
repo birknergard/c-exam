@@ -13,8 +13,12 @@ int main(void){
     MENU *pMenu = NULL;
     FLIGHT_LIST *pflFlights = NULL;
 
-    pMenu = CreateMenu();
-    //pflFlights = CreateFlightList();
+    pflFlights = CreateFlightList();
+    if(pflFlights == NULL){
+	return ERROR;
+    }
+
+    pMenu = CreateMenu((void*) pflFlights);
 
     AddOption(pMenu, "Add flight", OptOne);
 
@@ -35,45 +39,46 @@ int main(void){
     StartMenu(pMenu, "Task 3");
 	
     DestroyMenu(pMenu);
-    //DestroyFlightList(pflFlights);
+    DestroyFlightList(pflFlights);
 
     return 0;
 }
 
 /*
- * Option 1
+ * Option 1: Add a flight to the list
  * */
-void OptOne(){
-    printf("Option 1!!");
+void OptOne(void *vpflFlightList){
+    int iStatus;
 
+    //if((iStatus = AddFlight()))
 
 }
 
 /*
  * Option 2
  * */
-void OptTwo(){
+void OptTwo(void *vpflFlightList){
 
 }
 
 /*
  * Option 3
  * */
-void OptThree(){
+void OptThree(void *vpflFlightList){
 
 }
 
 /*
  * Option 4
  * */
-void OptFour(){
+void OptFour(void *vpflFlightList){
 
 }
 
 /*
  * Option 5
  * */
-void OptFive(){
+void OptFive(void *vpflFlightList){
 
 }
 
@@ -81,21 +86,21 @@ void OptFive(){
 /*
  * Option 6
  * */
-void OptSix(){
+void OptSix(void *vpflFlightList){
 
 }
 
 /*
  * Option 7
  * */
-void OptSeven(){
+void OptSeven(void *vpflFlightList){
 
 }
 
 /*
  * Option 8
  * */
-void OptEight(){
+void OptEight(void *vpflFlightList){
 
 }
 

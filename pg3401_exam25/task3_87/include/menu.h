@@ -9,7 +9,7 @@
 #pragma pack(1)
 typedef struct _OPTION {
 	char *pszTitle;
-	void (*vfAction)();
+	void (*vfAction)(void *vpStruct);
 } OPTION;
 #pragma pack(1)
 
@@ -22,11 +22,12 @@ typedef struct _OPTION {
 typedef struct _MENU {
 	OPTION **pOptions;
 	int iOptionCount;
+	void *vpStruct;
 
 } MENU;
 
 
-MENU *CreateMenu();
+MENU *CreateMenu(void *vpStruct);
 int AddOption(MENU *pMenu, char *szTitle, void (*funcAction)());
 
 int StartMenu(MENU *pMenu, char szProgramName[]);
