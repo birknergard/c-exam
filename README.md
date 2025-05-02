@@ -72,9 +72,13 @@ Implementation of the program was really simple. I used the functions i was give
 For this program I found that i had a lot of data structures prepared. I had already created the menu structure, single linked list and doubly linked list beforehand, as well as some other utility files (debug and util). However, when i put them all togheter (specifically the linked lists) i found that they had conflicting data types. Initially i tried renaming the wrappers but found the same issue with the naming of methods and the NODE struct. I then decided to refactor these two data structures into FLIGHT_LIST and PASSENGER_LIST, since it prevent unnecessary abstraction. 
 
 ### Linked List implementation
+Implementing the linked list structures was the biggest challenge in this task. Instead of starting from scratch i decided to refactor one singly linked list data structure i had worked on in week 7 for the passenger_list structure. For the flight list I refactored a doubly linked list i had worked on in preparation for the exams. Since i had no idea what data these structs would hold at the time i decided to make them hold a void pointer. For the solution i also decided to keep the pointer instead of having the data directly accessible. The assumption was that this would make the data structure easier to manage, especially in terms of memory handling. By encapsulating this way to restrict access to the raw linked list node (Flight/Passenger).    
+
+I later allowing the user of the datastructure access to these types anyway. In retrospect it may have been a lot easier for the lists to hold their data locally instead of encapsulating them in pointers. I tested the structures thoroughly for memory leaks and logical errors, and my tests did not create any memory leaks.
+
+With all that being said, the goal was for these data structures to be easily handled through their functions, and a test in managing complexity internally. In that regard I am quite satisfied with my work. 
 
 ### Menu implementation
-
 
 
 ### Other files
