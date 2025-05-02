@@ -68,8 +68,6 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
    strncpy(pfCreated->pfdData->pszDestination, szDestination, iDestinationSize);
    pfCreated->pfdData->pszDestination[iDestinationSize] = '\0';
 
-   memset(pfCreated->pfdData->iarrSeats, 0, sizeof(int) * MAX_SEATS); 
-
    /* Stores size of data */
    pfCreated->iSize = sizeof(pfCreated->pfdData);
 

@@ -69,11 +69,13 @@ Implementation of the program was really simple. I used the functions i was give
 ## Task 3
 
 ### Initial setup
-For this program I found that i had a lot of data structures prepared. I had already created the menu structure, single linked list and doubly linked list beforehand, as well as some other utility files (debug and util). However, when i put them all togheter (specifically the linked lists) i found that they had conflicting data types. Initially i tried renaming the wrappers but found the same issue with the naming of methods and the NODE struct. I then decided to refactor these two data structures into PLANES and PASSENGERS, since it would make the whole program a lot more straight forward later on.
+For this program I found that i had a lot of data structures prepared. I had already created the menu structure, single linked list and doubly linked list beforehand, as well as some other utility files (debug and util). However, when i put them all togheter (specifically the linked lists) i found that they had conflicting data types. Initially i tried renaming the wrappers but found the same issue with the naming of methods and the NODE struct. I then decided to refactor these two data structures into FLIGHT_LIST and PASSENGER_LIST, since it prevent unnecessary abstraction. 
+
+### Linked List implementation
 
 ### Menu implementation
 
-### Linked List implementation
+
 
 ### Other files
 

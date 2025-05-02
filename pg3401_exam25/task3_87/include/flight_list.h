@@ -27,7 +27,6 @@ typedef struct _FLIGHT_DATA{
    char szID[MAX_ID];
    char *pszDestination;
    int iDepartureTime;
-   int iarrSeats[MAX_SEATS];
    PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
 
