@@ -61,4 +61,7 @@ int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd);
 /* Removes a flight based on flight id */
 int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]);
 
+void PrintFlightList(FLIGHT_LIST *pfl);
+void InternalFlightListTest();
+
 #endif /*ndef ___FLIGHT_LIST_H___  */ 

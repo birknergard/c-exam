@@ -7,6 +7,9 @@
 #include "debug.h"
 #include "passenger_list.h"
 
+/*
+ * TODO:
+ * */
 static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    FLIGHT *pfCreated = NULL;
 
@@ -40,6 +43,13 @@ static FLIGHT *_CreateFlight(const FLIGHT_DATA fd){
    return pfCreated;
 }
 
+/*
+ * TODO:
+ * */
+static int DestroyFlight(FLIGHT *pf){
+
+}
+
 FLIGHT_LIST *CreateFlightList(){
    FLIGHT_LIST *pflCreated = NULL;
 
@@ -59,6 +69,9 @@ FLIGHT_LIST *CreateFlightList(){
    return pflCreated;
 }
 
+/*
+ * TODO:
+ * */
 int DestroyFlightList(FLIGHT_LIST **ppfl){
    FLIGHT *pfCurrent = (*ppfl)->pfFirst;   
    FLIGHT *pfTemp = NULL;
@@ -88,6 +101,9 @@ int DestroyFlightList(FLIGHT_LIST **ppfl){
    return OK;
 }
 
+/*
+ * TODO:
+ * */
 int AddFlight(FLIGHT_LIST *pfl, FLIGHT_DATA fd){
    int iStatusCode = ERROR;
    FLIGHT *pfNew = _CreateFlight(fd);
@@ -123,6 +139,9 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szFlightId[]){
    return iStatusCode;
 }
 
+/*
+ * TODO:
+ * */
 static FLIGHT *_GetFlight(FLIGHT_LIST fl, int n){
    int i;
    FLIGHT *pfCurrent = NULL;
@@ -168,6 +187,88 @@ static FLIGHT *_GetFlight(FLIGHT_LIST fl, int n){
    return pfCurrent;
 }
 
+/*
+ * TODO:
+ * */
 FLIGHT_DATA *GetFlightData(FLIGHT_LIST fl, int n){
    return _GetFlight(fl, n)->pfdData; 
+}
+
+/*
+ * TODO:
+ * */
+void PrintFlightList(FLIGHT_LIST *pfl) {
+
+}
+
+void InternalFlightListTest(){
+
+    // Step 1: Create list
+    FLIGHT_LIST *pfl = CreateFlightList();
+    if (!pfl) {
+        printf("Failed to create flight list.\n");
+        return;
+    }
+    printf("Flight list created.\n");
+
+    // Step 2: Add some flights
+    FLIGHT_DATA fd1 = { "AA1", 100, 900, CreatePassengerList() };
+    FLIGHT_DATA fd2 = { "BB2", 150, 1100, CreatePassengerList() };
+    FLIGHT_DATA fd3 = { "CC3", 200, 1300, CreatePassengerList() };
+
+    AddFlight(pfl, fd1);
+    AddFlight(pfl, fd2);
+    AddFlight(pfl, fd3);
+    printf("Added 3 flights.\n");
+
+    // Step 3: Print and check
+    PrintFlightList(pfl);
+
+    if (pfl->iLength != 3) {
+        printf("Error: Expected flight list length 3, got %d\n", pfl->iLength);
+    }
+
+    // Step 4: Get by index
+    FLIGHT_DATA *retrieved = GetFlightData(*pfl, 1);
+    if (retrieved != NULL) {
+        printf("Retrieved flight at index 1: ID=%s\n", retrieved->szFlightID);
+    } else {
+        printf("Failed to retrieve flight at index 1.\n");
+    }
+
+    // Step 5: Validate passengers list was allocated
+    if (retrieved->pplPassengers == NULL) {
+        printf("Error: Passenger list not initialized for flight %s\n", retrieved->szFlightID);
+    } else {
+        printf("Passenger list exists for flight %s\n", retrieved->szFlightID);
+    }
+
+    // Step 6: Remove a flight
+    printf("Removing flight BB2...\n");
+    int removeResult = RemoveFlight(pfl, "BB2");
+    if (removeResult == OK) {
+        printf("Flight BB2 removed.\n");
+    } else {
+        printf("Failed to remove flight BB2.\n");
+    }
+
+    // Step 7: Print and check state
+    PrintFlightList(pfl);
+    if (pfl->iLength != 2) {
+        printf("Error: Expected flight list length 2 after removal, got %d\n", pfl->iLength);
+    }
+
+    // Step 8: Try invalid removal
+    printf("Trying to remove non-existent flight ZZ9...\n");
+    if (RemoveFlight(pfl, "ZZ9") != OK) {
+        printf("Correctly handled removal of non-existent flight.\n");
+    }
+
+    // Step 9: Destroy list
+    printf("Destroying flight list...\n");
+    if (DestroyFlightList(&pfl) == OK) {
+        printf("Flight list destroyed successfully.\n");
+    } else {
+        printf("Error destroying flight list.\n");
+    }
 }
