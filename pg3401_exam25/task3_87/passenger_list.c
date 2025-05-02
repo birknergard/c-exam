@@ -94,7 +94,7 @@ static int _DestroyPassenger(PASSENGER *pp){
 static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
 	PASSENGER *ppCurrent = NULL;
 	char szNewNameLower[MAX_NAME], szCurrentNameLower[MAX_NAME];
-	int i, iNewNameLength, iCurrentNameLength;
+	int iNewNameLength, iCurrentNameLength;
 
 	/* Verifies list is not empty */
 	if(ppl->iLength == 0){
@@ -174,7 +174,6 @@ PASSENGER_LIST *CreatePassengerList(){
 int DestroyPassengerList(PASSENGER_LIST *pppl){
 	/* Declaring variables */
 	PASSENGER *ppCurrent = NULL, *ppNext = NULL;
-	int i;
 
 	/* Errors if attempting to destroy empty list */
 	if(pppl == NULL){

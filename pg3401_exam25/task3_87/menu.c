@@ -10,9 +10,14 @@
 /*
  * Private function for creating options. Takes a string and a function pointer.
  * */
-static OPTION *_CreateOption(char szTitle[], void (*funcAction)()){
+static OPTION *_CreateOption(char szTitle[], void (*vfAction)()){
 	OPTION *pNewOption = NULL;
 	int iTitleLength = strlen(szTitle);
+
+	if(iTitleLength > TITLE_BUFFER){
+		berror("Title exceeds buffer.");
+		return NULL;
+	}
 
 	pNewOption = (OPTION *) malloc(sizeof(OPTION));
 	if(pNewOption == NULL){
@@ -20,24 +25,18 @@ static OPTION *_CreateOption(char szTitle[], void (*funcAction)()){
 		return NULL;	
 	}
 
-	pNewOption->pszTitle = (char *) malloc(TITLE_BUFFER);
+	pNewOption->pszTitle = (char *) malloc(iTitleLength + 1);
 	if(pNewOption->pszTitle == NULL){
 		berror("Malloc failed for newOptions->pszTitle.");
 		free(pNewOption);
 		pNewOption = NULL;
+		return NULL;
 	}
 
-	if(iTitleLength >= TITLE_BUFFER){
-		strncpy(pNewOption->pszTitle, szTitle, TITLE_BUFFER);
-		pNewOption->pszTitle[TITLE_BUFFER] = '\0';
+	strncpy(pNewOption->pszTitle, szTitle, iTitleLength);
+	pNewOption->pszTitle[iTitleLength] = '\0';
 
-	} else {
-		strncpy(pNewOption->pszTitle, szTitle, iTitleLength);
-		pNewOption->pszTitle[iTitleLength] = '\0';
-	}
-	
-
-	pNewOption->funcAction = funcAction;
+	pNewOption->vfAction = vfAction; 
 
 	return pNewOption;
 }
@@ -64,18 +63,27 @@ MENU *CreateMenu(){
  *  It requires the menu struct as a pointer, 
  *  a title (string) and a function(ptr) which runs the option.
  * */
-int AddOption(MENU *pMenu, char szTitle[], void (*funcAction)()){
+int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)()){
+	/* Declaring variables */
 	OPTION *pNewOption = NULL;
 	OPTION **ppExtendedOptions = NULL;
+
+	/* Integer pointer to hold menu option count later */
 	int *piOptionCount = NULL; 
 
-	pNewOption = _CreateOption(szTitle, funcAction);
+	/* Creates a new option, checks if valid (function takes care of logging) */ 
+	pNewOption = _CreateOption(szTitle, vfAction);
+	if(pNewOption == NULL){
+		return ERROR;
+	}
+
+	/* Holds the optioncount in menu directly through int pointer */ 
 	piOptionCount = &(pMenu->iOptionCount);
 
 	/* If MENU is empty */
-	if(piOptionCount == 0){
-		pMenu->pOptions = (OPTION **)malloc(sizeof(OPTION *));
-		memcpy(pMenu->pOptions, pNewOption, sizeof(OPTION*));
+	if(*piOptionCount == 0){
+		pMenu->pOptions = (OPTION **) malloc(sizeof(OPTION *));
+		pMenu->pOptions[0] = pNewOption;
 
 	/* If menu contains previous elements */
 	} else {
@@ -92,16 +100,16 @@ int AddOption(MENU *pMenu, char szTitle[], void (*funcAction)()){
 		/* Deleting old data */
 		free(pMenu->pOptions);
 
-		/* Reassigning main ptr to new data */
+		/* Reassigning main ptr to new one with added data */
 		pMenu->pOptions = ppExtendedOptions;
 
 		ppExtendedOptions = NULL;
 	}
 
-	/* Incrementing optioncount value */
-	++(*piOptionCount);
+	/* Dereferences the pointer and increments the option count */
+	(*piOptionCount)++;
 
-	/* Handling dangling ptrs */
+	/* Cleanup */
 	piOptionCount = NULL;
 	pNewOption = NULL;
 
@@ -111,28 +119,26 @@ int AddOption(MENU *pMenu, char szTitle[], void (*funcAction)()){
 /*
  *  Frees all memory associated with menu and removes dangling pointers.
  * */
-int DestroyMenu(MENU **ppMenu){
+int DestroyMenu(MENU *pMenu){
 	int i;
 	OPTION *pCurrOption = NULL;
 
-	if((*ppMenu)->iOptionCount > 0){
-		for(i = 0; i < (*ppMenu)->iOptionCount; i++){
-			pCurrOption = (*ppMenu)->pOptions[i]; 
-
-			pCurrOption->funcAction = NULL;
-
-			free(pCurrOption->pszTitle);
-			pCurrOption->pszTitle = NULL;
-
-			free(pCurrOption);
-
-			/* Removing dangling pointers */
-			pCurrOption = NULL;
+	/* Frees every title in the option list */
+	if(pMenu->iOptionCount > 0){
+		for(i = 0; i < pMenu->iOptionCount; i++){
+			pCurrOption = pMenu->pOptions[i]; 
+			if(pCurrOption != NULL){
+				free(pCurrOption->pszTitle);
+				free(pCurrOption);
+			}
 		}
 	}
 
-	free((*ppMenu)->pOptions);
-	free(*ppMenu);
+	/* Removing dangling pointers */
+	pCurrOption = NULL;
+	free(pMenu->pOptions);
+	free(pMenu);
+
 	return OK;
 }
 
@@ -140,7 +146,7 @@ int DestroyMenu(MENU **ppMenu){
  *	Executes an options given action by indexing
  * */
 int ExecuteAction(MENU pMenu, int iSelection){
-	pMenu.pOptions[iSelection - 1]->funcAction();
+	pMenu.pOptions[iSelection - 1]->vfAction();
 	return OK;
 }
 
@@ -151,9 +157,9 @@ int DisplayOptions(MENU pMenu){
 	int i;
 	printf("%s\n\n", "________________________________________________________");
 	for(i = 0; i < pMenu.iOptionCount; i++){
-		printf("%2d) %+30s\n\n", i + 1, pMenu.pOptions[i]->pszTitle);
+		printf("%2d) %s\n\n", i + 1, pMenu.pOptions[i]->pszTitle);
 	}
-		printf("%2d) %+30s\n", 0, "EXIT");
+		printf("%2d) %s\n", 0, "EXIT");
 		printf("\n\n");
 	printf("%s\n\n", "________________________________________________________");
 
@@ -198,7 +204,6 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 
 	if(iSelection == 0){
 		printf("\nExiting ...\n");
-		DestroyMenu(&pMenu);
 		return OK;
 
 	} else {
@@ -213,5 +218,7 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 		
 		StartMenu(pMenu, szProgramName);
 	}
+
+	return ERROR;
 }
 

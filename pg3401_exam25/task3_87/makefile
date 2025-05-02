@@ -6,7 +6,7 @@ CFLAGS += -I $(INCLDIR)
 # Sets compiler standard to c89
 CFLAGS += -std=c99
 # Display all warnings
-#CFLAGS += -Wall
+CFLAGS += -Wall
 
 # For creating just obj files library
 # ar rcs task3.a $(OBJS)

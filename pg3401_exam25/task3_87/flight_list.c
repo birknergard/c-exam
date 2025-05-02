@@ -339,7 +339,7 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    }
 
    if((pfTarget = _GetFlightByID(*pfl, szID)) == NULL){
-      printf("Flight with ID -> %d does not exist.\n", szID); 
+      printf("Flight with ID -> %s does not exist.\n", szID); 
       return ERROR;
    }
 
@@ -411,16 +411,15 @@ int PrintFlight(FLIGHT_LIST *pfl, int n){
    printf("   Available seats: %d\n", (MAX_SEATS - pfFlight->pfdData->pplPassengers->iLength));
 
    /* Prints the list of passengers for the flight */
-      PrintPassengerList(pfFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
+   PrintPassengerList(pfFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
 
-
+   return OK;
 }
 /*
  * 
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
    int i;
-   FLIGHT *pfCurrentFlight = NULL; 
 
    if(pfl->iLength == 0){
       printf("No flights have been added to the list\n");
@@ -432,9 +431,6 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
          break;
       }
    }
-
-   /* Cleanup */
-   pfCurrentFlight = NULL;
 
    return;
 }

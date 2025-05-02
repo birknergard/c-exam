@@ -14,28 +14,28 @@ int main(void){
     FLIGHT_LIST *pflFlights = NULL;
 
     pMenu = CreateMenu();
-    pflFlights = CreateFlightList();
+    //pflFlights = CreateFlightList();
 
-    AddOption(pMenu, "Add flight", &OptOne);
+    AddOption(pMenu, "Add flight", OptOne);
 
-    AddOption(pMenu, "Add passenger to flight", &OptTwo);
+    AddOption(pMenu, "Add passenger to flight", OptTwo);
 
-    AddOption(pMenu, "Display flights ", &OptThree);
+    AddOption(pMenu, "Display flights ", OptThree);
 
-    AddOption(pMenu, "Find flight number by destination", &OptFour);
+    AddOption(pMenu, "Find flight number by destination", OptFour);
 
-    AddOption(pMenu, "Delete flight", &OptFive);
+    AddOption(pMenu, "Delete flight", OptFive);
 
-    AddOption(pMenu, "Change passengers seat", &OptSix);
+    AddOption(pMenu, "Change passengers seat", OptSix);
 
-    AddOption(pMenu, "Find which flights passenger is on", &OptSeven);
+    AddOption(pMenu, "Find which flights passenger is on", OptSeven);
     
-    AddOption(pMenu, "View passengers multiple booked flights", &OptEight);
+    AddOption(pMenu, "View passengers multiple booked flights", OptEight);
 
     StartMenu(pMenu, "Task 3");
 	
-    DestroyMenu(&pMenu);
-    DestroyFlightList(pflFlights);
+    DestroyMenu(pMenu);
+    //DestroyFlightList(pflFlights);
 
     return 0;
 }
@@ -44,6 +44,7 @@ int main(void){
  * Option 1
  * */
 void OptOne(){
+    printf("Option 1!!");
 
 
 }

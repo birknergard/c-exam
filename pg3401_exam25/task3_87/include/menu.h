@@ -1,13 +1,15 @@
 #ifndef ___MENU_H___
 #define ___MENU_H___
 
+
 #define TITLE_BUFFER 256
 #define MAX_BUFFER 1024
+
 
 #pragma pack(1)
 typedef struct _OPTION {
 	char *pszTitle;
-	void (*funcAction)();
+	void (*vfAction)();
 } OPTION;
 #pragma pack(1)
 
@@ -30,7 +32,7 @@ int AddOption(MENU *pMenu, char *szTitle, void (*funcAction)());
 int StartMenu(MENU *pMenu, char szProgramName[]);
 int DisplayOptions(MENU pMenu);
 int SelectAction(MENU pMenu, char cSelection);
-int DestroyMenu(MENU **pMenu);
+int DestroyMenu(MENU *pMenu);
 
 
 #endif /*ndef ___MENU_H___ */
