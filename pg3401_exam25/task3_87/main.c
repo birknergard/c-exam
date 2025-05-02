@@ -3,18 +3,18 @@
 
 #include "debug.h"
 #include "menu.h"
-#include "ll_double.h"
-#include "ll_single.h"
+#include "flight_list.h"
 
 int main(void){
+    bdebug("Testing program!");
+    
+    MENU *pMenu = NULL;
 
-	bdebug("Testing program!");
-
-	MENU *pMenu = NULL;
-
-	pMenu = CreateMenu();
+    pMenu = CreateMenu();
 	
-	DestroyMenu(&pMenu);
+    DestroyMenu(&pMenu);
 
-	return 0;
-}	
+    InternalFlightListTest();
+
+    return 0;
+}
