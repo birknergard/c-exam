@@ -18,7 +18,7 @@
  * */
 typedef struct _PASSENGER_DATA{
     int iSeatNumber;
-    char szName[MAX_NAME];
+    char *pszName;
     int iAge;
 } PASSENGER_DATA;
 

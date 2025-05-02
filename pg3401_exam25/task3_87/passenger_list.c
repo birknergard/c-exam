@@ -14,10 +14,11 @@
 static PASSENGER *_CreatePassenger(int iSeatNumber, char szName[], int iAge){
 	/* Declare new passenger pointer */
 	PASSENGER *ppNew = NULL; 
+   int iNameLength = strlen(szName); 
 
 	bdebug("Creating passenger\n");
 	/* Checks that chosen name isn't too long */
-	if(strlen(szName) > MAX_NAME){
+	if(iNameLength >= MAX_NAME){
 		printf("Chosen name is too long.\n");
 		return NULL;
 	}
@@ -39,13 +40,26 @@ static PASSENGER *_CreatePassenger(int iSeatNumber, char szName[], int iAge){
 	if(ppNew->ppdData == NULL){
 		berror("Failed malloc in _CreatePassenger(), for passenger data\n");
 		free(ppNew);
+      ppNew = NULL;
 		return NULL;
 	}
 
+   /* Inputs data into fields */
 	ppNew->ppdData->iSeatNumber = iSeatNumber;
-	strncpy(ppNew->ppdData->szName, szName, strlen(szName));
-	ppNew->ppdData->szName[strlen(szName)] = '\0';
 	ppNew->ppdData->iAge = iAge;
+   
+   /* Dynamically allocates name based on length. Since length is check above this is safe */
+	ppNew->ppdData->pszName = (char *) malloc(iNameLength + 1);
+   if(ppNew->ppdData->pszName == NULL){
+      free(ppNew->ppdData);
+      free(ppNew);
+      ppNew = NULL;
+      return NULL;
+   }
+
+   /* Copies name string to newly allocated string */
+	strncpy(ppNew->ppdData->pszName, szName, iNameLength);
+   ppNew->ppdData->pszName[iNameLength] = '\0'; 
 
 	/* Return the new passenger pointer */
 	return ppNew;
@@ -63,6 +77,7 @@ static int _DestroyPassenger(PASSENGER *pp){
 
 	/* Release connected node if exists, and destroy passenger data */
 	pp->ppNext = NULL;
+   free(pp->ppdData->pszName);
 	free(pp->ppdData);
 
 	/* Free/destroy the pointer */
@@ -97,8 +112,8 @@ static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
 	while(ppCurrent != NULL){
 
 		/* Should be safe length since its already in the list */
-		iCurrentNameLength = strlen(ppCurrent->ppdData->szName);
-		StrncpyLowercase(szCurrentNameLower, ppCurrent->ppdData->szName, iCurrentNameLength);
+		iCurrentNameLength = strlen(ppCurrent->ppdData->pszName);
+		StrncpyLowercase(szCurrentNameLower, ppCurrent->ppdData->pszName, iCurrentNameLength);
 
 		/* If the current passenger has the same name: return passenger */
 		if(strcmp(szCurrentNameLower, szNewNameLower) == 0){
@@ -187,7 +202,6 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 	PASSENGER *ppPrev = NULL;		
 	int iCompareResult, iStatus;
 
-	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge); 
 	/* Checks if creation failed */
 	if(ppNewPassenger == NULL){
 		berror("Could not create add new passenger due to allocation error.\n");
@@ -200,11 +214,14 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 		return ERROR;
 	}
 
+	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge); 
+
 	/* If list is empty, inserts passenger in first position */
 	bdebug("Adding passenger to list.");
 	if(ppl->iLength == 0 || ppl->ppFirst == NULL){
 		ppl->ppFirst = ppNewPassenger;	
 		ppl->iLength++;
+      ppNewPassenger = NULL;
 		return OK;
 	}
 
@@ -230,7 +247,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 		/* This should be prevented before this function is invoked. This is here as a precaution. */
 		if(ppCurrent->ppdData->iSeatNumber == iSeatNumber){
 			printf("Seat number %d is taken.\n", iSeatNumber);
-			free(ppNewPassenger);
+         _DestroyPassenger(ppNewPassenger);
 			iStatus = ERROR;
 			break;
 		}
@@ -282,7 +299,7 @@ int RemovePassenger(PASSENGER_LIST *ppl, char szName[]){
 	ppCurrent = ppl->ppFirst;
 
 	/* Checks head node first */
-	if(strncmp(szName, ppCurrent->ppdData->szName, MAX_NAME) == 0){
+	if(strncmp(szName, ppCurrent->ppdData->pszName, MAX_NAME) == 0){
 		bdebug("Deleting %s\n", szName);
 		ppTarget = ppCurrent;
 		ppl->ppFirst = ppCurrent->ppNext;  // Move head to next node
@@ -298,7 +315,7 @@ int RemovePassenger(PASSENGER_LIST *ppl, char szName[]){
 		ppCurrent = ppCurrent->ppNext;
 
 		while(ppCurrent != NULL){
-			if(strncmp(szName, ppCurrent->ppdData->szName, MAX_NAME) == 0){
+			if(strncmp(szName, ppCurrent->ppdData->pszName, MAX_NAME) == 0){
 				bdebug("Deleting %s\n", szName);
 				ppTarget = ppCurrent;
 				ppPrev->ppNext = ppCurrent->ppNext;  // Skip over the current node
@@ -376,7 +393,7 @@ void PrintPassengerList(PASSENGER_LIST *ppl){
 		n++;
 		printf("   %d: %s, %d, %d\n",
 	 n,
-	 ppCurrent->ppdData->szName,
+	 ppCurrent->ppdData->pszName,
 	 ppCurrent->ppdData->iSeatNumber,
 	 ppCurrent->ppdData->iAge
 	 );	
