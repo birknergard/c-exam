@@ -89,14 +89,7 @@ typedef struct _FLIGHT_LIST {
 FLIGHT_LIST *CreateFlightList();
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
-/* Getter functions */
-FLIGHT *GetFlightByPosition(FLIGHT_LIST *fl, int n);
-
 int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]);
-
-int FlightListIsEmpty(FLIGHT_LIST *pfl);
-
-int FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]);
 
 /* List modification functions - return OK or ERROR */
 int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestination[]);
@@ -114,7 +107,5 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl);
 int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge);
 int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat);
 int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
-
-int InternalFlightListTest();
 
 #endif /*ndef ___FLIGHT_LIST_H___  */ 
