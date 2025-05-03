@@ -16,7 +16,6 @@
 #define MAX_SEATS 64
 #define MAX_NAME 256
 
-#pragma pack(1)
 /*
  * Structure for holding passengers name and age.
  * The data structure only accounts for unique names,
@@ -25,33 +24,34 @@
  *
  * PREFIX: p - (p)assenger
  * */
+#pragma pack(1)
 typedef struct _PASSENGER{
    char *pszName;
    int iAge;
 } PASSENGER;
 #pragma pack()
 
-#pragma pack (1)
 /*
  * PREFIX: pn - (p)assenger (n)ode
  * */
+#pragma pack (1)
 typedef struct _PASSENGER_NODE {
     struct _PASSENGER_NODE *ppnNext;
     int iSeatNumber;
-    _PASSENGER *ppPassenger; /*Holds a pointer to the data instead of holding the data itself*/
+    PASSENGER *ppPassenger; /*Holds a pointer to the data instead of holding the data itself*/
 } PASSENGER_NODE;
 #pragma pack ()
 
-#pragma pack (1)
 /*
  * PREFIX: pl - (p)assenger (l)ist
  * */
+#pragma pack (1)
 typedef struct _PASSENGER_LIST{
-    PASSENGER *ppHead;
+    PASSENGER_NODE *ppHead;
     int iLength;
 } PASSENGER_LIST;
 #pragma pack ()
-#pragma pack(1)
+
 
 /*
  * PREFIX: fd - (f)light (d)ata
@@ -61,6 +61,7 @@ typedef struct _FLIGHT_DATA{
    char *pszDestination;
    int iDepartureTime;
    PASSENGER_LIST *pplPassengers;
+   int iUniquePassengers;
 } FLIGHT_DATA;
 
 #pragma pack()

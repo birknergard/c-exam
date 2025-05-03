@@ -3,6 +3,7 @@
  * AUTHOR: 87
  * DESCRIPTION:
  * */
+
 #include "flight_list.h" 
 
 #include <stdio.h>
@@ -20,7 +21,7 @@
 static int _ComparePassengers(PASSENGER *pp1, PASSENGER *pp2){
    /* If the struct values are equal, return OK */
    if(strcmp(pp1->pszName, pp2->pszName) == 0
-   && pp1->iAge == pp1->iAge) return OK;
+   && pp1->iAge == pp2->iAge) return OK;
 
    /* else return ERROR */
    return ERROR;
@@ -30,7 +31,13 @@ static int _ComparePassengers(PASSENGER *pp1, PASSENGER *pp2){
 static PASSENGER *_CreatePassenger(char szName[], int iAge){
    PASSENGER *ppNew = NULL; 
    
-	ppNew = (PASSENGER_DATA *) malloc(sizeof(PASSENGER_DATA)); 
+   /* Verify input */
+   if(strlen(szName) > MAX_NAME){
+      bdebug("Name exceeds maximum characters.\n");
+      return NULL;
+   }
+
+	ppNew = (PASSENGER *) malloc(sizeof(PASSENGER_DATA)); 
 	if(ppNew == NULL){
 		berror("Failed malloc in _CreatePassenger(), for passenger data\n");
 		free(ppNew);
@@ -423,7 +430,7 @@ static int _RemovePassenger(PASSENGER_LIST *ppl, PASSENGER *ppData){
  * Essentially just removes the node and reinserts it again with the new seat number,
  *  allowing add/remove functions do most of the work, with some added input validation
  * */
-static int ChangeSeat(PASSENGER_LIST *ppl, PASSENGER *ppPassenger){
+static int _ChangeSeat(PASSENGER_LIST *ppl, PASSENGER *ppPassenger, int iNewSeat){
    /* Declares/initializes variables */
 	PASSENGER_DATA *ppnPassengerNode = NULL;
 	int iOriginalSeat, iStatus = OK;
@@ -492,7 +499,8 @@ static void _PrintPassengerList(PASSENGER_LIST *ppl){
 }
 
 /*
- * FLIGHT LIST IMPLEMENTATION STARTS HERE
+ * This function creates a new FLIGHT *, given its required data.
+ * Also performs validation of arguments for added safety.
  * */
 static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination[]){
    FLIGHT *pfCreated = NULL;
@@ -571,7 +579,7 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
 }
 
 /*
- *
+ * Retrieves a FLIGHT * by its ID (4 letters), performs validation
  * */
 static FLIGHT *_GetFlightByID(FLIGHT_LIST *pfl, char szID[]){
    FLIGHT *pfCurrent = NULL;
@@ -601,7 +609,7 @@ static FLIGHT *_GetFlightByID(FLIGHT_LIST *pfl, char szID[]){
 }
 
 /*
- *
+ * Destroys a FLIGHT * allocated by CreateFlight.
  * */
 static int _DestroyFlight(FLIGHT *pf){
    int iPListDestroyed;
@@ -625,19 +633,23 @@ static int _DestroyFlight(FLIGHT *pf){
 
 
 /*
- *
+ * Initializes the FLIGHT_LIST structure in the form of a unique pointer.
+ * Internally it also creates a list of unique passenger pointers, which are what is added to 
+ * the passenger lists later on.
  * */
 FLIGHT_LIST *CreateFlightList(){
+   /* Declaring pointer */
    FLIGHT_LIST *pflCreated = NULL;
 
-   /* Allocating for flight list. */
+   /* Allocating for flight list, and verifies */
    pflCreated = (FLIGHT_LIST *) malloc(sizeof(FLIGHT_LIST));
    if(pflCreated == NULL){
       bdebug("Failed malloc in CreateFlightList()");
       return NULL;
    }
 
-   /* Allocates PASSENGER ** for holding passenger addresses */
+   /* Allocates PASSENGER ** for holding passenger addresses. Will be increased in size 
+      dynamically as passengers are added. */
    pflCreated->ppUniquePassengers = (PASSENGER **) malloc(sizeof(PASSENGER *));
    if(pflCreated->ppUniquePassengers == NULL){
       berror("Failed to allocate unique passenger pointer.");
@@ -645,7 +657,6 @@ FLIGHT_LIST *CreateFlightList(){
       pflCreated = NULL;
       return NULL;
    }
-   
 
    /* Initializing pointers */
    pflCreated->iLength = 0;
@@ -656,9 +667,11 @@ FLIGHT_LIST *CreateFlightList(){
 }
 
 /*
- *
+ * Destroys a flight list created with CreateFlightList
  * */
 int DestroyFlightList(FLIGHT_LIST *ppfl){
+
+   /* Initialize pointers */
    FLIGHT *pfCurrent = ppfl->pfFirst;   
    FLIGHT *pfTemp = NULL;
 
@@ -669,50 +682,45 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
       _DestroyFlight(pfTemp);
    }
 
+   /* Removes dangling pointers */
    pfCurrent = NULL;
    pfTemp = NULL;
 
+   /* Frees list */
    ppfl->pfFirst = NULL; 
    ppfl->pfLast = NULL; 
-
+   free(pfl->ppUniquePassengers);
    free(ppfl);
 
    return OK;
 }
 
 /*
- *
+ * Checks if a flights passengerlist is empty, given its ID
  * */
-int FlightListIsEmpty(FLIGHT_LIST *pfl){
-   if(pfl != NULL){
-      return pfl->iLength == 0;
-   } else {
-      return -1; 
-   }
-}
+static int _FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]){
 
-/*
- *
- * */
-int FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]){
+   /* Declare pointer */
    FLIGHT *pfFlight = NULL;
 
-   if(FlightListIsEmpty(pfl) != 0){
+   /*  */
+   if(pfl->iLength > 0){
       pfFlight = _GetFlightByID(pfl, szID);   
       if(pfFlight == NULL){
          berror("flight does not exist.");
          return -1;
       }
-      if(pfFlight->pfdData->pplPassengers != NULL){
-         return pfFlight->pfdData->pplPassengers->iLength == 0;
-      }
+      if(pfFlight->pfdData->pplPassengers->iLength == 0){
+         return OK;
+      } else return ERROR;
    } 
 
    return -1; 
 }
 
 /*
- *
+ * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
+ * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
  * */
 int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
    FLIGHT *pfCurrent = NULL;
@@ -730,6 +738,7 @@ int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
       return -1;
    }
 
+   /* Starts at head */
    pfCurrent = pfl->pfFirst;
 
    /* Searches the list until it reaches a null pointer (end) */
@@ -751,17 +760,20 @@ int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
 
 
 /*
- * Gets FLIGHT by position in list. Starts at 1 (not zero-indexed) 
+ * Gets a FLIGHT * by its position in list the list (pfl). Starts at 1 (not zero-indexed) 
  * */
 FLIGHT *GetFlightByPosition(FLIGHT_LIST *pfl, int n){
+   /* Declaring variables */
    int i;
    FLIGHT *pfCurrent = NULL;
 
+   /* Checks if N is out of bounds for the list */
    if(n > pfl->iLength || n < 0){
       berror("Position given is out of bounds.\n");
       return NULL;
    }
 
+   /* If N is 1, retrieve the HEAD of the list. */
    if(n == 1){
       if(pfl->pfFirst == NULL){
          berror("Flight list HEAD is not defined.\n");
@@ -771,6 +783,7 @@ FLIGHT *GetFlightByPosition(FLIGHT_LIST *pfl, int n){
    }
 
 
+   /* If N is the current lenght of the list, retrieve the TAIL of the list (the last node). */
    if(n == pfl->iLength){
       if(pfl->pfLast == NULL){
          berror("Flight list TAIL is not defined.\n");
@@ -780,7 +793,7 @@ FLIGHT *GetFlightByPosition(FLIGHT_LIST *pfl, int n){
    }
 
    /* If index is smaller or equal to middle, Iterate forward from head ... 
-   NOTE: If number is odd the number is automatically rounded down to nearest whole */
+   NOTE: If number is odd the number is automatically rounded down to nearest whole number :) */
    if(n <= pfl->iLength / 2){
       pfCurrent = pfl->pfFirst;
       for(i = 0; i < n; i++){
@@ -802,10 +815,14 @@ FLIGHT *GetFlightByPosition(FLIGHT_LIST *pfl, int n){
  * Inserts a new flight at the head of the list 
  * */
 int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestination[]){
+   /* Declaring variables */
    int iStatusCode = ERROR;
    FLIGHT *pfNew = NULL;
 
+   /* Creates a new flight pointer */
    pfNew = _CreateFlight(szID, iDepartureTime, szDestination);
+
+   /* If the pointer was created successfully, add it to the flight list */
    if (pfNew != NULL){
       /* If head is undefined (list is empty), set new node as head and tail */
       if(pfl->pfFirst == NULL){
@@ -824,22 +841,105 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
          pfl->pfFirst = pfNew;
 
       }
+      /* Increments the length of the list */
       pfl->iLength++;
       iStatusCode = OK;
    }
 
+   /* Cleanup */
    pfNew = NULL;
    return iStatusCode;
 }
 
 /*
- *
+ * Checks if a passenger exists in the unique passenger list
+ * Returns OK if it exists, ERROR if it does.
  * */
-int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge){
-   FLIGHT *pf = NULL;
+static int _PassengerExists(FLIGHT_LIST *pfl, char szName[]){
+   /* If exists remains the same, return initial value */
+   int i, iExists = 1;
 
-   pf = _GetFlightByID(pfl, szFlightID);
-   if(pf == NULL){
+   /* Checks every passenger in array for whether it exists or not */
+   for(i = 0; i < pfl->iLength; i++){
+       if((iExists = strcmp(pfl->ppUniquePassengers[i]->szName, szName)) == 0){
+         break;
+       }
+   }
+   return iExists;
+}
+
+/*
+ * This list handles creation of new PASSENGER structs.
+ * NOTE: Largely copied from the AddOption method in "menu.c" :)
+ * */
+static int _AddUniquePassenger(FLIGHT_LIST *pfl, char szName[], int iAge){
+   /* Declare variables */
+   PASSENGER *ppNewPassenger = NULL;
+
+   /* Checks if passenger exists. If yes then returns 1 */
+   if(_PassengerExists(pfl, szName) == OK){
+      return 1;
+   }
+
+   /* Create a new PASSENGER */
+   ppNewPassenger = _CreatePassenger(szName, iAge);
+
+	if(pfl->iUniquePassengers == 0){
+		memcpy(pfl->ppUniquePassengers[0], ppNewPassenger, sizeof(PASSENGER *));
+
+	/* If menu contains previous elements */
+	} else {
+		/* Creating extended pointer */
+		ppExtended = (PASSENGER **) malloc(sizeof(PASSENGER *) * (pfl->iUniquePassengers + 1));
+      if(ppExtended == NULL){
+         berror("Allocation to extended pointer failed.\n");
+         return ERROR;
+      }
+
+		/* Copying old data to new ptr */
+		memcpy(ppExtended, pfl->ppUniquePassengers, sizeof(PASSENGER *) * (pfl->iUniquePassengers));
+
+		/* Copy new data to new ptr */
+		memcpy(ppExtended[pfl->iUniquePassengers], ppNewPassenger, sizeof(PASSENGER *);
+
+		/* Deleting old data */
+		free(pfl->ppUniquePassengers);
+      DestroyPassenger(ppNewPassenger);
+
+		/* Reassigning main ptr to new one with added data */
+		pfl->ppUniquePassengers = ppExtended;
+
+		ppExtended = NULL;
+	}
+
+   return OK;
+}
+
+static PASSENGER *_GetUniquePassenger(FLIGHT_LIST *pfl, char szName[]){
+   /* Searches until it finds a passenger with the same name */
+   int i;
+   for(i = 0; i < pfl->iUniquePassengers; i++){
+      if(strcmp(pfl->ppUniquePassengers[i]->szName, szName) == OK){
+         return pfl->ppUniquePassengers[i];
+      }
+   }
+
+   /* If it doesnt find it, return NULL */
+   return NULL;
+}
+
+/*
+ * Adds a passenger to a flight (given its FlightId(sz)). 
+ * Makes sure the passenger * is unique through the _GetUniquePassenger function.
+ * */
+int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[]){
+   /* Declaring pointers */
+   FLIGHT *pfFlight = NULL;
+   PASSENGER *ppNewPassenger = NULL;
+
+   /* Retrieves a flight by its ID */
+   pfFlight = _GetFlightByID(pfl, szFlightID);
+   if(pfFlight == NULL){
       printf("No flight exists on that ID.\n");
    }
 
@@ -848,11 +948,14 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
       return ERROR;
    }
 
-   return _AddPassenger(pf->pfdData->pplPassengers, iSeatNumber, szName, iAge);
+   AddUniquePassenger(pfl, szName, iAge);
+   ppNewPassenger = _GetUniquePassenger(szName);
+
+   return _AddPassengerNode(pf->pfdData->pplPassengers, iSeatNumber, ppNewPassenger);
 }
 
 /*
- *
+ * Changes the seat of a passenger.
  * */
 int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat){
    FLIGHT *pf = NULL;
@@ -867,11 +970,13 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
       printf("No flight exists on that ID.\n");
    }
 
-   return _ChangeSeat(pf->pfdData->pplPassengers, szName, iNewSeat);
+   ppPassenger = _GetUniquePassenger(szName);
+
+   return _ChangeSeat(pf->pfdData->pplPassengers, ppPassenger, iNewSeat);
 }
 
 /*
- *
+ * Removes and deletes a flight from the flight list
  * */
 int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    FLIGHT *pfTarget = NULL;
@@ -884,16 +989,18 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
        return ERROR;
    }
 
+   /* Verifies existence of flight ID */
    if((pfTarget = _GetFlightByID(pfl, szID)) == NULL){
       printf("Flight with ID -> %s does not exist.\n", szID); 
       return ERROR;
    }
 
-   /* Should be null if its the only item in the list, else should be another node */
+   /* If target for deletion is the HEAD, set head to next node over */
    if(pfTarget == pfl->pfFirst){
       pfl->pfFirst = pfl->pfFirst->pfNext;   
    }
 
+   /* If target for deletion is the TAIL, set the tail to the node previous to the target */
    if(pfTarget == pfl->pfLast){
       pfl->pfLast = pfl->pfLast->pfPrev;   
    }
@@ -902,7 +1009,7 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    pfAdjacentLeft = pfTarget->pfNext;
    pfAdjacentRight = pfTarget->pfPrev;
 
-   /* Points the adjacent nodes to each other, omitting the target */
+   /* points the adjacent nodes to each other if they exist, omitting the target */
    if (pfAdjacentRight != NULL)
       pfAdjacentRight->pfNext = pfAdjacentLeft;
    if (pfAdjacentLeft != NULL)
@@ -912,12 +1019,13 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    pfTarget->pfNext = NULL;
    pfTarget->pfPrev = NULL;
 
-   /* Destroys the node (See function definition) */
+   /* Destroys the Flight node (See function definition) */
    _DestroyFlight(pfTarget);
 
    /* Decrements the list counter */
    pfl->iLength--;
 
+   /* Cleanup */
    pfTarget = NULL;
    pfAdjacentLeft = NULL;
    pfAdjacentRight = NULL;
@@ -925,6 +1033,9 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    return OK;
 }
 
+/*
+ * Prints a list of passengers for a flight by its Flight ID.
+ * */
 int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]){
    if(pfl->iLength == 0){
       printf("-> no flights have been added to the list\n");
@@ -944,20 +1055,25 @@ int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]){
 }
 
 /*
- * Prints a single flight by its position (N)
+ * Prints a single flights information by its position in the flight list (N)
  * */
 int PrintFlight(FLIGHT_LIST *pfl, int n){
-   if(pfl->iLength == 0){
-      printf("-> no flights have been added to the list\n");
-      return ERROR;
-   }
 
    FLIGHT *pfFlight = NULL;
 
+   /* Checks for list length */
+   if(pfl->iLength == 0){
+      printf("-> no flights have been added to the list\n");
+      return 1;
+   }
+
+
+   /* Retrieves a flight by its position N, checks for errors */
    pfFlight = GetFlightByPosition(pfl, n);
    if(pfFlight == NULL){
       return ERROR;
    }
+   /* Prints the flight info */
    printf("%d-> ", n);
    printf("%s: TO:  %s, DEPARTS: %d", 
           pfFlight->pfdData->szID,
@@ -981,7 +1097,7 @@ int PrintFlight(FLIGHT_LIST *pfl, int n){
 }
 
 /*
- * 
+ * Prints data for every flight in the list
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
    int n;
@@ -991,6 +1107,7 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
       return;
    }
 
+   /* Runs the above function for every flight in the list */
    for(n = 1; n <= pfl->iLength; n++){
       if(PrintFlight(pfl, n) == ERROR){
          break;
@@ -1000,73 +1117,91 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
 }
 
 /*
- *
+ * A version of PrintFlight that prints a less information.
  * */
 static int _PrintFlightSimple(FLIGHT *pf){
+   FLIGHT_DATA *pfdData = NULL;
+
    if(pf == NULL){
       return ERROR;
    }
 
+   /* Stores data in temp pointer for better readability */
    FLIGHT_DATA *pfdData = pf->pfdData;
+
+   /* Print data */
    printf(
       "#%s,  %s,  departs at %d",
       pfdData->szID, pfdData->pszDestination, pfdData->iDepartureTime
    ); 
    printf(", %d passengers on flight\n", pfdData->pplPassengers->iLength);
 
+   /* cleanup */
+   pfdData = NULL;
+
    return OK;
 }
 
 /*
- *
+ * Same function as PrintFlightList except with less information per flight
  * */
 void PrintFlightListSimple(FLIGHT_LIST *pfl){
    int n;
-   FLIGHT *pfCurrent; 
+   FLIGHT *pfCurrent = NULL; 
 
    if(pfl->iLength == 0){
       printf("No flights have been added to the list\n");
       return;
    }
 
+   /* Starts at HEAD, stores the flights to be printed */
    pfCurrent = pfl->pfFirst;
 
-   for(n = 1; n <= pfl->iLength; n++){
-      if(pfCurrent == NULL){
-         break;
-      }
-
+   while(pfCurrent != NULL){
+   
       _PrintFlightSimple(pfCurrent);
 
+      /* Checks next flight */
       pfCurrent = pfCurrent->pfNext;
    }
 
 
+   /* cleanup */
    pfCurrent = NULL;
+
    return;
 }
 /*
- * For use in option 7
+ * Gets a list of every flight a passenger is booked to 
  * */
-int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]){
+void GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]){
+   /* Declare variables */
    FLIGHT *pfCurrentFlight = NULL;
-   PASSENGER_DATA *ppdPassenger = NULL;
-   int n, iFlightPrinted = ERROR;
+   PASSENGER_NODE *ppdPassenger = NULL;
+   int n, iStatus, iFlightFound = 0;
 
-   if(pfl == NULL){
-      return ERROR;
-   }
+   /* Checks if passenger exists */
+   if(PassengerExists(pfl, szPassengerName) != 0){
+      printf("%s is not a passenger for any flights.\n", szName); 
+      return 1;
+   };
+   
+   /* Traverse the whole list, printing every flight that the passenger is a part of */
+   pfCurrentFlight = pfl->pfFirst;
+   while(pfCurrentFlight != NULL){
 
-   /* Trading innefficiency (GetFlightByPosition is O(n)) with code clarity and error handling by invoking the getter i times */
-   for(n = 1; n <= pfl->iLength; n++){
-      pfCurrentFlight = GetFlightByPosition(pfl, n);
-      ppdPassenger = _GetPassengerData(pfCurrentFlight->pfdData->pplPassengers, szPassengerName);
-      if(ppdPassenger != NULL){
-         iFlightPrinted = _PrintFlightSimple(pfCurrentFlight);
+      ppdPassenger = pfCurrentFlight->pfdData->pplPassengers->ppnHead;
+      while(ppdPassengerNode != NULL){
+         if(strcmp(ppdPassengerNode->ppPassenger->pszName, szPassengerName) == 0){
+            iFlightFound++;
+            if(iFlightFound > 1){
+               _PrintFlightSimple(pfCurrentFlight);
+            }
+         }
+         ppdPassengerNode = ppdPassengerNode->ppnNext;
       }
+      pfCurrentFlight = pfCurrentFlight->pfNext;
    }
-
-   return iFlightPrinted;
 }
 
 /*
