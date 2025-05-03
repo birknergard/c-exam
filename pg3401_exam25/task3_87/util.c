@@ -81,36 +81,6 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	return iStatus;
 } 
 
-int StrncpyLowercase(char szLowerString[], char szString[], int iMaxBuffer){
-
-	char *pszStringBuffer = NULL;  
-	int iLength, i;
-
-	iLength = strlen(szString);
-	if(iLength > iMaxBuffer){
-		berror("STRING EXCEEDS MAX BUFFER");
-		return 1;
-	} 
-
-	pszStringBuffer = (char *) malloc(iLength);
-	if(pszStringBuffer == NULL){
-		berror("StrncpyLowercase(): String buffer allocation failed");
-		return 1;
-	}
-
-	for(i = 0; i < iLength; i++){
-		pszStringBuffer[i] = tolower(szString[i]);	
-	}
-
-	strncpy(szLowerString, pszStringBuffer, iMaxBuffer);
-	szLowerString[iLength] = '\0'; 
-
-	free(pszStringBuffer);
-
-	return 0;
-}
-
-
 int ParsePositiveInteger(char *psz){
 	int iNum, iLen, i;
 

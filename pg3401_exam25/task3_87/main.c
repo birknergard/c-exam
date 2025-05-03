@@ -286,29 +286,38 @@ void OptSix(void *vpflFlightList){
 
 /*
  * Option 7: Find all flights passenger is reserved for (by name)
+ * TODO: Fix text formatting, debug, make better flight printer that does not print all passengers
  * */
 void OptSeven(void *vpflFlightList){
-    /*
-    char *pszName; 
-    */
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszName = NULL;
+
     pszName = (char *) malloc(MAX_INPUT);
-
-    if(pszName != NULL){
-        GetInput(1, (char*[]) {
-            "Enter Passenger Name:"
-        }, (char *){"S"}, &pszName);
-
-        bdebug("Searching flights for: %s\n", pszName);
+    if(pszName == NULL){
+	pflFlightList = NULL;
+	return;
     }
 
+    GetInput(1, (char*[]) {
+	"Enter Passenger Name:"
+    }, (char *){"S"}, &pszName);
+
+    printf("Displaying flights booked by %s \n", pszName);
+    if(GetPassengersFlights(pflFlightList, pszName) == 0){
+	printf("Passenger %s has not booked any flights.\n", pszName);
+    };
+
     free(pszName);
+    pflFlightList = NULL;
+    pszName = NULL;
 }
 
 /*
  * Option 8: Find passengers which are booked for more than one flight
  * */
 void OptEight(void *vpflFlightList){
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+
     /* No input needed :) */
     printf("Looking for passengers on multiple flights...\n");
 }

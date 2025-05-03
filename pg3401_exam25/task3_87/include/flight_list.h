@@ -56,7 +56,7 @@ FLIGHT_LIST *CreateFlightList();
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
 /* Getter functions */
-FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n);
+FLIGHT *GetFlightByPosition(FLIGHT_LIST *fl, int n);
 
 int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]);
 
@@ -77,8 +77,9 @@ int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
 void PrintFlightListSimple(FLIGHT_LIST *pfl);
 
-int AddPassengerToFlight(FLIGHT_LIST *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge);
-int ChangePassengerSeat(FLIGHT_LIST *pf, char szFlightID[], char szName[], int iNewSeat);
+int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge);
+int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat);
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
 
 int InternalFlightListTest();
 

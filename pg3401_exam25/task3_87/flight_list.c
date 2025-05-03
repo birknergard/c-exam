@@ -258,47 +258,46 @@ int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
 /*
  * Gets FLIGHT by position in list. Starts at 1 (not zero-indexed) 
  * */
-FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n){
+FLIGHT *GetFlightByPosition(FLIGHT_LIST *pfl, int n){
    int i;
    FLIGHT *pfCurrent = NULL;
 
-   if(n > fl.iLength || n < 0){
+   if(n > pfl->iLength || n < 0){
       berror("Position given is out of bounds.\n");
       return NULL;
    }
 
    if(n == 1){
-      if(fl.pfFirst == NULL){
+      if(pfl->pfFirst == NULL){
          berror("Flight list HEAD is not defined.\n");
          return NULL;
       }
-      return fl.pfFirst;
+      return pfl->pfFirst;
    }
 
 
-   if(n == fl.iLength){
-      if(fl.pfLast == NULL){
+   if(n == pfl->iLength){
+      if(pfl->pfLast == NULL){
          berror("Flight list TAIL is not defined.\n");
          return NULL;
       }
-      return fl.pfLast; 
+      return pfl->pfLast; 
    }
 
    /* If index is smaller or equal to middle, Iterate forward from head ... 
    NOTE: If number is odd the number is automatically rounded down to nearest whole */
-   if(n <= fl.iLength / 2){
-      pfCurrent = fl.pfFirst;
+   if(n <= pfl->iLength / 2){
+      pfCurrent = pfl->pfFirst;
       for(i = 0; i < n; i++){
          pfCurrent = pfCurrent->pfNext;
       }
 
    /* ... Else go backwards from tail */
    } else {
-      pfCurrent = fl.pfLast;
+      pfCurrent = pfl->pfLast;
       for(i = 0; i < n; i++){
          pfCurrent = pfCurrent->pfPrev;
       }
-
    } 
 
    return pfCurrent;
@@ -460,7 +459,7 @@ int PrintFlight(FLIGHT_LIST *pfl, int n){
 
    FLIGHT *pfFlight = NULL;
 
-   pfFlight = GetFlightByPosition(*pfl, n);
+   pfFlight = GetFlightByPosition(pfl, n);
    if(pfFlight == NULL){
       return ERROR;
    }
@@ -534,117 +533,28 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl){
    pfCurrent = NULL;
    return;
 }
-
-
-
 /*
-int InternalFlightListTest() {
-   int iFailed = 0;
-   FLIGHT_LIST *pfl;
-   FLIGHT *pfFL01;
+ * For use in option 7
+ * */
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]){
+   FLIGHT *pfCurrentFlight = NULL;
+   PASSENGER_DATA *ppdPassenger = NULL;
+   int n, iFlightPrinted = 0;
 
-   bdebug("Starting internal flight list tests...\n");
-
-   // Create flight list
-   bdebug("Test: Create flight list...");
-   pfl = CreateFlightList();
-   if (!pfl) {
-       bdebug("FAILED: Could not create flight list.\n");
-       return 1;
+   if(pfl == NULL){
+      return ERROR;
    }
 
-   // Add flights
-   bdebug("Test: Add flight FL01...");
-   if (AddFlight(pfl, "FL01", 900, "New York") != OK) {
-       bdebug("FAILED: Could not add FL01.\n");
-       iFailed = 1;
+   /* Trading innefficiency (GetFlightByPosition is O(n)) with code clarity and error handling by invoking the getter i times */
+   for(n = 1; n <= pfl->iLength; n++){
+      pfCurrentFlight = GetFlightByPosition(pfl, n);
+      ppdPassenger = GetPassengerData(pfCurrentFlight->pfdData->pplPassengers, szPassengerName);
+      if(ppdPassenger != NULL){
+         iFlightPrinted += PrintFlight(pfl, n);
+      }
    }
 
-   // Get flight
-   bdebug("Test: Retrieve flight FL01...");
-   pfFL01 = _GetFlightByID(*pfl, "FL01");
-   if (!pfFL01) {
-       bdebug("FAILED: FL01 not found.\n");
-       return 1;
-   }
+   if(iFlightPrinted == 0) return ERROR;
 
-   // Add passenger John Doe to seat 1
-   bdebug("Test: Add John Doe to seat 1...");
-   if (AddPassengerToFlight(pfFL01, "FL01", 1, "John Doe", 30) != OK) {
-       bdebug("FAILED: Could not add John Doe.\n");
-       iFailed = 1;
-   }
-
-   // Add Alice Smith to seat 5
-   PrintFlight(pfl, 1);
-   bdebug("Test: Add Alice Smith to seat 5...");
-   if (AddPassengerToFlight(pfFL01, "FL01", 5, "Alice Smith", 40) != OK) {
-       bdebug("FAILED: Could not add Alice Smith.\n");
-       iFailed = 1;
-   }
-   PrintFlight(pfl, 1);
-
-   // Test: Change John Doe to seat 5 (already taken)
-   bdebug("Test: Change John Doe to taken seat 5...");
-   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 5) != ERROR) {
-       bdebug("FAILED: Changed to taken seat.\n");
-       iFailed = 1;
-   }
-
-   // Test: Change John Doe to same seat (1)
-   bdebug("Test: Change John Doe to same seat 1...");
-   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 1) != ERROR) {
-       bdebug("FAILED: Changed to same seat.\n");
-       iFailed = 1;
-   }
-
-   // Test: Change seat for non-existent passenger
-   bdebug("Test: Change seat for non-existent passenger 'Ghost'...");
-   if (ChangePassengerSeat(pfFL01, "FL01", "Ghost", 10) != ERROR) {
-       bdebug("FAILED: Changed seat for non-existent passenger.\n");
-       iFailed = 1;
-   }
-
-   // Test: Change to invalid seat number (-1)
-   bdebug("Test: Change John Doe to invalid seat -1...");
-   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", -1) != ERROR) {
-       bdebug("FAILED: Allowed invalid seat change.\n");
-       iFailed = 1;
-   }
-
-   // Test: Change to valid seat
-   bdebug("Test: Change John Doe to valid seat 3...");
-   if (ChangePassengerSeat(pfFL01, "FL01", "John Doe", 3) != OK) {
-       bdebug("FAILED: Could not change to valid seat.\n");
-       iFailed = 1;
-   }
-
-   // Test: Add passenger Bob to taken seat 3
-   bdebug("Test: Add Bob to taken seat 3...");
-   if (AddPassengerToFlight(pfFL01, "FL01", 3, "Bob", 25) != ERROR) {
-       bdebug("FAILED: Added to taken seat.\n");
-       iFailed = 1;
-   }
-
-   // Add Bob correctly to seat 7
-   bdebug("Test: Add Bob to seat 7...");
-   if (AddPassengerToFlight(pfFL01, "FL01", 7, "Bob", 25) != OK) {
-       bdebug("FAILED: Could not add Bob to seat 7.\n");
-       iFailed = 1;
-   }
-
-   // Final print for inspection (optional)
-   bdebug("Test: Print final flight status...");
-   PrintFlight(pfl, 1);
-
-   // Cleanup
-   bdebug("Test: Destroy flight list...");
-   if (DestroyFlightList(pfl) != OK) {
-       bdebug("FAILED: Could not destroy flight list.\n");
-       iFailed = 1;
-   }
-
-   bdebug("Finished internal flight list tests. %s\n", iFailed ? "There were errors." : "All tests passed.");
-   return iFailed;
+   return OK;
 }
-*/
