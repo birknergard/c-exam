@@ -8,9 +8,6 @@
 *              abstractions.
 --------------------------------------------------*/
 
-/* Inclusion is in header so i dont have to redefine PASSENGER_LIST struct */
-#include "passenger_list.h"
-
 #ifndef ___FLIGHT_LIST_H___ 
 #define ___FLIGHT_LIST_H___  
 
@@ -18,6 +15,42 @@
 #define MAX_DESTINATION 1028
 #define MAX_SEATS 64
 
+/* The longest name (according to google) is 747. So this seems like a reasonable max :) */
+#define MAX_NAME 1028
+
+typedef struct _PASSENGER_INFO{
+    char *pszName;
+    int iAge;
+} PASSENGER_INFO;
+
+#pragma pack (1)
+/*
+ * PREFIX: pd - (p)assenger (d)ata
+ * */
+typedef struct _PASSENGER_DATA{
+    int iSeatNumber;
+    char *pszName;
+    int iAge;
+} PASSENGER_DATA;
+
+/*
+ * PREFIX: p - (p)assenger
+ * */
+typedef struct _PASSENGER {
+    struct _PASSENGER *ppNext;
+    PASSENGER_DATA *ppdData; /*Holds a pointer to the data instead of holding the data itself*/
+} PASSENGER;
+#pragma pack ()
+
+#pragma pack (1)
+/*
+ * PREFIX: pl - (p)assenger (l)ist
+ * */
+typedef struct _PASSENGER_LIST{
+    PASSENGER *ppFirst;
+    int iLength;
+} PASSENGER_LIST;
+#pragma pack ()
 #pragma pack(1)
 
 /*

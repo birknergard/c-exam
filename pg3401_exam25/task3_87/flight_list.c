@@ -1,13 +1,416 @@
+/* 
+ * TITLE: Flight list
+ * AUTHOR: 87
+ * DESCRIPTION:
+ * */
 #include "flight_list.h" 
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
+#include "util.h"
 #include "debug.h"
+
+
+/*
+ * This function creates a PASSENGER*, given a passengers seat number, name, and age.
+ * */
+static PASSENGER *_CreatePassenger(int iSeatNumber, char szName[], int iAge){
+	/* Declare new passenger pointer */
+	PASSENGER *ppNew = NULL; 
+   int iNameLength = strlen(szName); 
+
+	/* Checks that chosen name isn't too long */
+	if(iNameLength >= MAX_NAME){
+		printf("Chosen name is too long.\n");
+		return NULL;
+	}
+
+	/* Allocate new passenger pointer */
+	ppNew = (PASSENGER *) malloc(sizeof(PASSENGER));
+	if(ppNew == NULL){
+		berror("Failed malloc in _CreatePassenger()\n");
+		return NULL;
+	}
+
+	/* Initialize it */
+	memset(ppNew, 0, sizeof(PASSENGER));
+	ppNew->ppdData = NULL;
+	ppNew->ppNext = NULL;
+
+	/* Allocate for passenger data to the heap. This allows for more consistent freeing behavior. */
+	ppNew->ppdData = (PASSENGER_DATA *) malloc(sizeof(PASSENGER_DATA)); 
+	if(ppNew->ppdData == NULL){
+		berror("Failed malloc in _CreatePassenger(), for passenger data\n");
+		free(ppNew);
+      ppNew = NULL;
+		return NULL;
+	}
+
+   /* Inputs data into fields */
+	ppNew->ppdData->iSeatNumber = iSeatNumber;
+	ppNew->ppdData->iAge = iAge;
+   
+   /* Dynamically allocates name based on length. Since length is check above this is safe */
+	ppNew->ppdData->pszName = (char *) malloc(iNameLength + 1);
+   if(ppNew->ppdData->pszName == NULL){
+      free(ppNew->ppdData);
+      free(ppNew);
+      ppNew = NULL;
+      return NULL;
+   }
+
+   /* Copies name string to newly allocated string */
+	strncpy(ppNew->ppdData->pszName, szName, iNameLength);
+   ppNew->ppdData->pszName[iNameLength] = '\0'; 
+
+	/* Return the new passenger pointer */
+	return ppNew;
+}
+
+/*
+ * This function deallocates/frees a given PASSENGER* and all its corresponding data.
+ * It returns 0 if successful, otherwise it returns 1.
+ * */
+static int _DestroyPassenger(PASSENGER *pp){
+	/* Verify pointer is allocated */
+	if(pp == NULL){
+		puts("Cannot free null pointer.\n");	
+		return ERROR;
+	}
+
+	/* Release connected node if exists, and destroy passenger data */
+	pp->ppNext = NULL;
+   free(pp->ppdData->pszName);
+	free(pp->ppdData);
+
+	/* Free/destroy the pointer */
+	free(pp);
+
+	return OK;
+}
 
 /*
  *
+ * */
+static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
+	PASSENGER *ppCurrent = NULL;
+	int iNewNameLength, iCurrentNameLength;
+
+	/* Verifies list is not empty */
+	if(ppl->iLength == 0){
+		puts("Passenger list is empty.\n");
+		return NULL;
+	}
+
+	iNewNameLength = strlen(szName);
+	if(iNewNameLength > MAX_NAME){
+		puts("Given name exceeds max character limit on names. Therefore it does not exist in list.\n");
+		return NULL;
+	}
+
+	/* Start by checking the first passenger in the list */
+	ppCurrent = ppl->ppFirst;	
+
+	while(ppCurrent != NULL){
+
+		/* Should be safe length since its already in the list */
+		iCurrentNameLength = strlen(ppCurrent->ppdData->pszName);
+
+		/* If the current passenger has the same name: return passenger */
+		if(strncmp(szName, ppCurrent->ppdData->pszName, iCurrentNameLength) == 0){
+			printf("Passenger found!\n");
+			return ppCurrent;
+		};
+
+		/* If not: reset name buffer check next */
+		ppCurrent = ppCurrent->ppNext;
+	}
+
+	ppCurrent = NULL;
+	return NULL;
+}
+
+/*
+ *
+ * */
+static PASSENGER_DATA *_GetPassengerData(PASSENGER_LIST *ppl, char szName[]){
+	PASSENGER_DATA *ppdData = NULL;
+	PASSENGER *ppPassenger = NULL;
+	ppPassenger = _GetPassenger(ppl, szName);
+
+	if(ppPassenger == NULL){
+		return NULL;
+	}
+
+	ppdData = ppPassenger->ppdData;
+	if(ppdData == NULL){
+		berror("Passenger data was not found.\n");
+		return NULL;
+	}
+
+	ppPassenger = NULL;
+	return ppdData; 
+}
+
+static PASSENGER_LIST *_CreatePassengerList(){
+	PASSENGER_LIST *pplNew = NULL;
+	pplNew = (PASSENGER_LIST *) malloc(sizeof(PASSENGER_LIST));
+	if(pplNew == NULL){
+		berror("CreatePassengerList() -> Malloc failed");
+		return NULL;
+	}
+
+	memset(pplNew, 0, sizeof(PASSENGER_LIST));
+
+	pplNew->iLength = 0;
+	pplNew->ppFirst = NULL;
+
+	return pplNew;
+}
+
+
+static int _DestroyPassengerList(PASSENGER_LIST *pppl){
+	/* Declaring variables */
+	PASSENGER *ppCurrent = NULL, *ppNext = NULL;
+
+	/* Errors if attempting to destroy empty list */
+	if(pppl == NULL){
+		berror("Attempted to destroy an empty list.\n");
+		return ERROR;
+	}
+
+   /* If ppCurrent ends up being NULL it passes the while check, freeing the node
+      Otherwise it enters the while */
+	ppCurrent = pppl->ppFirst;
+
+	while(ppCurrent != NULL){
+		ppNext = ppCurrent->ppNext;
+		_DestroyPassenger(ppCurrent);
+		ppCurrent = ppNext;
+	}
+
+	ppCurrent = NULL;
+	ppNext = NULL;
+	free(pppl);
+	return OK;
+}
+
+/*
+ * This list list is supposed to be sorted by SEAT NUMBER. 
+ * */
+static int _AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
+	PASSENGER *ppNewPassenger = NULL;		
+	PASSENGER *ppCurrent = NULL;		
+	PASSENGER *ppPrev = NULL;		
+	int iCompareResult, iStatus;
+
+
+	/* Checks if passenger with that name already exists in the list */
+	if(_GetPassengerData(ppl, szName) != NULL){
+		printf("Person already exists.\n");	
+		return ERROR;
+	}
+
+	/* Allocates new passenger */
+	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge); 
+	if(ppNewPassenger == NULL){
+		berror("Could not create add new passenger due to allocation error.\n");
+		return ERROR;
+	}
+
+	/* If list is empty, inserts passenger in first position */
+	bdebug("Adding passenger to list.");
+	if(ppl->iLength == 0 || ppl->ppFirst == NULL){
+		ppl->ppFirst = ppNewPassenger;	
+		ppl->iLength++;
+		ppNewPassenger = NULL;
+		return OK;
+	}
+
+	/* Set current to first node */
+	ppCurrent = ppl->ppFirst;
+	ppPrev = ppCurrent;
+
+	if (ppl->ppFirst->ppdData->iSeatNumber > iSeatNumber) {
+		ppNewPassenger->ppNext = ppl->ppFirst;
+		ppl->ppFirst = ppNewPassenger;
+		ppl->iLength++;
+
+		ppNewPassenger = NULL;		
+		ppCurrent = NULL;		
+		ppPrev = NULL;		
+		return OK;
+	}
+
+	/* Effectively starting from the second node, until current reaches null pointer */
+	while(ppCurrent != NULL){
+		iCompareResult = ppCurrent->ppdData->iSeatNumber < iSeatNumber;
+
+		/* This should be prevented before this function is invoked. This is here as a precaution. */
+		if(ppCurrent->ppdData->iSeatNumber == iSeatNumber){
+			printf("Seat number %d is taken.\n", iSeatNumber);
+			_DestroyPassenger(ppNewPassenger);
+			iStatus = ERROR;
+			break;
+		}
+
+		// Key is greater
+		if(iCompareResult > 0){
+			// If higher value, go next, unless next passenger is NULL
+			if(ppCurrent->ppNext == NULL){
+				ppCurrent->ppNext = ppNewPassenger;
+				ppl->iLength++;
+				iStatus = OK;
+				break;
+			} 
+
+			ppPrev = ppCurrent;
+			ppCurrent = ppCurrent->ppNext;       
+
+			// Key is smaller, element is insert before the next key 
+		} else {
+			// handle insert
+			ppPrev->ppNext = ppNewPassenger;
+			ppNewPassenger->ppNext = ppCurrent;
+			ppl->iLength++;
+		        iStatus = OK;
+			break;
+		}
+	}
+
+	ppNewPassenger = NULL;		
+	ppCurrent = NULL;		
+	ppPrev = NULL;		
+	return iStatus;
+}
+
+/*
+ * 
+ * */
+static int _RemovePassenger(PASSENGER_LIST *ppl, char szName[]){
+	PASSENGER *ppCurrent = NULL;
+	PASSENGER *ppTarget = NULL;
+	PASSENGER *ppPrev = NULL;
+	int iStatus = ERROR;
+
+	if(ppl->iLength == 0){
+		printf("You can't remove from an empty list.\n");
+		return ERROR;
+	}
+
+	ppCurrent = ppl->ppFirst;
+
+	/* Checks head node first */
+	if(strncmp(szName, ppCurrent->ppdData->pszName, MAX_NAME) == 0){
+		bdebug("Deleting %s\n", szName);
+		ppTarget = ppCurrent;
+		ppl->ppFirst = ppCurrent->ppNext;  // Move head to next node
+
+		/* Delete passenger */
+		_DestroyPassenger(ppTarget);
+		ppl->iLength--;
+		iStatus = OK;
+
+	} else {
+		/* Traverse the list for middle or last node */
+		ppPrev = ppCurrent;
+		ppCurrent = ppCurrent->ppNext;
+
+		while(ppCurrent != NULL){
+			if(strncmp(szName, ppCurrent->ppdData->pszName, MAX_NAME) == 0){
+				bdebug("Deleting %s\n", szName);
+				ppTarget = ppCurrent;
+				ppPrev->ppNext = ppCurrent->ppNext;  // Skip over the current node
+
+				/* Delete passenger */
+				_DestroyPassenger(ppTarget);
+				ppl->iLength--;
+				iStatus = OK;
+				break;
+			}
+
+			ppPrev = ppCurrent;  // Move to the next node
+			ppCurrent = ppCurrent->ppNext;
+		}
+	}
+
+	if(ppTarget == NULL){
+		printf("Could not find passenger named %s in list.\n", szName);
+		return ERROR;
+	}
+
+	ppCurrent = NULL;
+	ppTarget = NULL;
+	ppPrev = NULL;
+	return iStatus;
+
+}
+
+/* Assuming we handle the case of a duplicate seat number in the flight_list datastruct */
+static int ChangeSeat(PASSENGER_LIST *ppl, char szName[], int iNewSeat){
+	PASSENGER_DATA *pdOriginalPassengerData = NULL;
+	int iAge, iOriginalSeat, iStatus = OK;
+
+	pdOriginalPassengerData = _GetPassengerData(ppl, szName);
+
+	if(pdOriginalPassengerData != NULL){
+      /* Checks if user attempted to change to the same seat that was already stored */
+      if(pdOriginalPassengerData->iSeatNumber == iNewSeat){
+         printf("%s already has that seat.\n", szName);
+
+         pdOriginalPassengerData = NULL;
+         return ERROR;
+      }
+
+		iAge = pdOriginalPassengerData->iAge;
+      iOriginalSeat = pdOriginalPassengerData->iSeatNumber;
+      pdOriginalPassengerData = NULL;
+
+		if((iStatus = _RemovePassenger(ppl, szName)) == ERROR){
+         return iStatus;
+      } 
+
+	   if((iStatus = _AddPassenger(ppl, iNewSeat, szName, iAge)) == ERROR){
+         /* Puts the passenger back to their original spot */
+         _AddPassenger(ppl, iOriginalSeat, szName, iAge);
+         return iStatus;
+      } 
+	} else {
+		printf("Passenger doesn't exist.\n");	
+      return ERROR;
+	}
+
+	pdOriginalPassengerData = NULL;
+   return iStatus;
+}
+
+static void _PrintPassengerList(PASSENGER_LIST *ppl){
+	PASSENGER *ppCurrent = NULL;
+	int n = 0;
+
+	printf("   > PASSENGERS, %d people <\n", ppl->iLength);
+	ppCurrent = ppl->ppFirst;
+
+	while(ppCurrent != NULL){
+		n++;
+		printf("   %d: %s, %d, %d\n",
+	 n,
+	 ppCurrent->ppdData->pszName,
+	 ppCurrent->ppdData->iSeatNumber,
+	 ppCurrent->ppdData->iAge
+	 );	
+		ppCurrent = ppCurrent->ppNext;
+	}
+	puts("");
+
+	ppCurrent = NULL;
+}
+
+/*
+ * FLIGHT LIST IMPLEMENTATION STARTS HERE
  * */
 static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination[]){
    FLIGHT *pfCreated = NULL;
@@ -72,7 +475,7 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
    pfCreated->iSize = sizeof(pfCreated->pfdData);
 
    /* Creates the passenger list within the flight data */
-   pfCreated->pfdData->pplPassengers = CreatePassengerList();
+   pfCreated->pfdData->pplPassengers = _CreatePassengerList();
    if(pfCreated->pfdData->pplPassengers == NULL){
       berror("Failed to create passenger list.");
       free(pfCreated->pfdData->pszDestination);
@@ -126,7 +529,7 @@ static int _DestroyFlight(FLIGHT *pf){
       return ERROR; 
    }
 
-   if((iPListDestroyed = DestroyPassengerList(pf->pfdData->pplPassengers)) == 1){
+   if((iPListDestroyed = _DestroyPassengerList(pf->pfdData->pplPassengers)) == 1){
       berror("Could not destroy passenger list.");
       return ERROR;
    };
@@ -353,7 +756,7 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
       return ERROR;
    }
 
-   return AddPassenger(pf->pfdData->pplPassengers, iSeatNumber, szName, iAge);
+   return _AddPassenger(pf->pfdData->pplPassengers, iSeatNumber, szName, iAge);
 }
 
 /*
@@ -444,7 +847,7 @@ int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]){
    } 
 
    /* Defined in passenger_list.h */
-   PrintPassengerList(pfFlight->pfdData->pplPassengers);
+   _PrintPassengerList(pfFlight->pfdData->pplPassengers);
    return OK;
 }
 
@@ -480,10 +883,11 @@ int PrintFlight(FLIGHT_LIST *pfl, int n){
    printf("   Available seats: %d\n", (MAX_SEATS - pfFlight->pfdData->pplPassengers->iLength));
 
    /* Prints the list of passengers for the flight */
-   PrintPassengerList(pfFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
+   _PrintPassengerList(pfFlight->pfdData->pplPassengers); /* See "passenger_list.h" for definition */
 
    return OK;
 }
+
 /*
  * 
  * */
@@ -503,10 +907,30 @@ void PrintFlightList(FLIGHT_LIST *pfl) {
    return;
 }
 
+/*
+ *
+ * */
+static int _PrintFlightSimple(FLIGHT *pf){
+   if(pf == NULL){
+      return ERROR;
+   }
+
+   FLIGHT_DATA *pfdData = pf->pfdData;
+   printf(
+      "#%s,  %s,  departs at %d",
+      pfdData->szID, pfdData->pszDestination, pfdData->iDepartureTime
+   ); 
+   printf(", %d passengers on flight\n", pfdData->pplPassengers->iLength);
+
+   return OK;
+}
+
+/*
+ *
+ * */
 void PrintFlightListSimple(FLIGHT_LIST *pfl){
    int n;
    FLIGHT *pfCurrent; 
-   FLIGHT_DATA *pfdData;
 
    if(pfl->iLength == 0){
       printf("No flights have been added to the list\n");
@@ -520,12 +944,8 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl){
          break;
       }
 
-      pfdData = pfCurrent->pfdData;
-      printf(
-         "%d-> #%s,  %s,  departs at %d",
-         n, pfdData->szID, pfdData->pszDestination, pfdData->iDepartureTime
-      ); 
-      printf(", %d passengers on flight\n", pfdData->pplPassengers->iLength);
+      _PrintFlightSimple(pfCurrent);
+
       pfCurrent = pfCurrent->pfNext;
    }
 
@@ -539,7 +959,7 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl){
 int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]){
    FLIGHT *pfCurrentFlight = NULL;
    PASSENGER_DATA *ppdPassenger = NULL;
-   int n, iFlightPrinted = 0;
+   int n, iFlightPrinted = ERROR;
 
    if(pfl == NULL){
       return ERROR;
@@ -548,13 +968,49 @@ int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]){
    /* Trading innefficiency (GetFlightByPosition is O(n)) with code clarity and error handling by invoking the getter i times */
    for(n = 1; n <= pfl->iLength; n++){
       pfCurrentFlight = GetFlightByPosition(pfl, n);
-      ppdPassenger = GetPassengerData(pfCurrentFlight->pfdData->pplPassengers, szPassengerName);
+      ppdPassenger = _GetPassengerData(pfCurrentFlight->pfdData->pplPassengers, szPassengerName);
       if(ppdPassenger != NULL){
-         iFlightPrinted += PrintFlight(pfl, n);
+         iFlightPrinted = _PrintFlightSimple(pfCurrentFlight);
       }
    }
 
-   if(iFlightPrinted == 0) return ERROR;
-
-   return OK;
+   return iFlightPrinted;
 }
+
+/*
+int PrintPassengersWithMultipleFlights(FLIGHT_LIST *pfl){
+    Find every unique passenger (names + age), and store their names in a list 
+   PASSENGER_LIST *ppl = NULL;
+   PASSENGER *ppPassenger = NULL;
+   FLIGHT *pfCurrent = NULL;
+   char *pszPassengerNames[MAX_NAME] = NULL;
+   int i, j, iNamesAdded;
+
+   / Set max unique passengers to 200 /
+   pszPassengerNames = (char **) malloc(MAX_NAME * 200);
+   if(pszPassengerNames == NULL){
+      berror("Malloc failed.");
+      return -1;
+   } 
+
+   iNamesAdded = 0;
+   pfCurrent = pfl->pfFirst;
+   for(i = 0; i < pfl->iLength; i++){
+      ppl = pfCurrent->pfdData->pplPassengerList;
+      ppCurrent = ppl->ppFirst;
+      while(ppCurrent != NULL){
+         ppCurrent = ppCurrent->ppNext;;
+
+         if(iNamesAdded == 0){
+            strncpy(pszPassengerNames[i], ppCurrent->ppdData->pszName);
+         }
+      }
+      pfCurrent = pfCurrent->pfNext;
+   }
+
+   / Find how many flights each passenger is booked to (hint, GetPassengerFlights)/
+   / If its more than 1, print the unique name /
+
+
+}
+*/

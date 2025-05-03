@@ -316,7 +316,8 @@ void OptSeven(void *vpflFlightList){
  * Option 8: Find passengers which are booked for more than one flight
  * */
 void OptEight(void *vpflFlightList){
-    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+    //FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+
 
     /* No input needed :) */
     printf("Looking for passengers on multiple flights...\n");
