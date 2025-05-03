@@ -239,11 +239,12 @@ void OptSix(void *vpflFlightList){
 
     char *pszFlightID = NULL, *pszName = NULL;
     int iNewSeat = -1;
+    int iChangedSeat;
 
     pszFlightID = (char *) malloc(MAX_INPUT);
     if(pszFlightID == NULL){
 	pflFlightList = NULL;
-	return NULL;
+	return;
     
     }
 
@@ -252,19 +253,30 @@ void OptSix(void *vpflFlightList){
 	free(pszFlightID);
 	pszFlightID = NULL;
 	pflFlightList = NULL;
-	return NULL;
-    
+	return;
     }
 
-    if(pszFlightID != NULL && pszName != NULL){
-        GetInput(3, (char*[]) {
-            "Enter Flight ID:",
-            "Enter Passenger Name:",
-            "Enter New Seat Number:"
-        }, (char *){"SSI"}, &pszFlightID, &pszName, &iNewSeat);
+    /* Get flight id first */
+    GetInput(1, (char*[]) {
+	"Enter flight ID:",
+    }, (char *) "S", &pszFlightID);
 
-        bdebug("Flight ID: %sPassenger: %sNew Seat: %d\n", pszFlightID, pszName, iNewSeat);
+    /* Show the list of passengers for reference */
+    if(PrintPassengers(pflFlightList, pszFlightID) != 0){
+	printf("Could not continue with action.\n");
+    } else {
+	/* Take more input */
+	GetInput(2, (char*[]) {
+	    "Enter passenger name:",
+	    "Enter NEW seat number (0->64):"
+	}, (char *) "SI", &pszName, &iNewSeat);
+
+	iChangedSeat = ChangePassengerSeat(pflFlightList, pszFlightID, pszName, iNewSeat);
+	if(iChangedSeat == 0){
+	    printf("Successfully changed seat for %s on flight #%s!\n\n", pszName, pszFlightID);
+	} else printf("Failed to change seat for %s.\n", pszName);
     }
+
 
     free(pszFlightID);
     free(pszName);

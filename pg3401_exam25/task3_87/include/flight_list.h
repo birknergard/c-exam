@@ -60,7 +60,7 @@ FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n);
 
 int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]);
 
-int FlightListIsEmpty(FLIGHT_LIST * pfl);
+int FlightListIsEmpty(FLIGHT_LIST *pfl);
 
 int FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]);
 
@@ -70,7 +70,7 @@ int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestinati
 /* Removes a flight based on flight id */
 int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
-void PrintPassengers(FLIGHT_DATA *pfd);
+int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]);
 
 /* Prints the flight list to the terminal */
 int PrintFlight(FLIGHT_LIST *pfl, int n);

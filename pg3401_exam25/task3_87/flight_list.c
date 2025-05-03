@@ -431,6 +431,24 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    return OK;
 }
 
+int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]){
+   if(pfl->iLength == 0){
+      printf("-> no flights have been added to the list\n");
+      return ERROR;
+   }
+
+   FLIGHT *pfFlight = NULL;
+
+   pfFlight = _GetFlightByID(pfl, szFlightID);
+   if(pfFlight == NULL){
+      return ERROR;
+   } 
+
+   /* Defined in passenger_list.h */
+   PrintPassengerList(pfFlight->pfdData->pplPassengers);
+   return OK;
+}
+
 /*
  * Prints a single flight by its position (N)
  * */

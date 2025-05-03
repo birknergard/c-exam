@@ -91,9 +91,11 @@ static int _DestroyPassenger(PASSENGER *pp){
 	return OK;
 }
 
+/*
+ *
+ * */
 static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
 	PASSENGER *ppCurrent = NULL;
-	char szNewNameLower[MAX_NAME], szCurrentNameLower[MAX_NAME];
 	int iNewNameLength, iCurrentNameLength;
 
 	/* Verifies list is not empty */
@@ -108,9 +110,6 @@ static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
 		return NULL;
 	}
 
-	/* From util.c: Sets inputted name to lowercase before searching */
-	StrncpyLowercase(szNewNameLower, szName, iNewNameLength);
-
 	/* Start by checking the first passenger in the list */
 	ppCurrent = ppl->ppFirst;	
 
@@ -118,21 +117,24 @@ static PASSENGER *_GetPassenger(PASSENGER_LIST *ppl, char szName[]){
 
 		/* Should be safe length since its already in the list */
 		iCurrentNameLength = strlen(ppCurrent->ppdData->pszName);
-		StrncpyLowercase(szCurrentNameLower, ppCurrent->ppdData->pszName, iCurrentNameLength);
 
 		/* If the current passenger has the same name: return passenger */
-		if(strcmp(szCurrentNameLower, szNewNameLower) == 0){
+		if(strncmp(szName, ppCurrent->ppdData->pszName, iCurrentNameLength) == 0){
+			printf("Passenger found!\n");
 			return ppCurrent;
-		}
+		};
 
 		/* If not: reset name buffer check next */
 		ppCurrent = ppCurrent->ppNext;
 	}
 
-
+	ppCurrent = NULL;
 	return NULL;
 }
 
+/*
+ *
+ * */
 PASSENGER_DATA *GetPassengerData(PASSENGER_LIST *ppl, char szName[]){
 	PASSENGER_DATA *ppdData = NULL;
 	PASSENGER *ppPassenger = NULL;
@@ -206,27 +208,26 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 	PASSENGER *ppPrev = NULL;		
 	int iCompareResult, iStatus;
 
-	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge);
-	/* Checks if creation failed */
+
+	/* Checks if passenger with that name already exists in the list */
+	if(GetPassengerData(ppl, szName) != NULL){
+		printf("Person already exists.\n");	
+		return ERROR;
+	}
+
+	/* Allocates new passenger */
+	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge); 
 	if(ppNewPassenger == NULL){
 		berror("Could not create add new passenger due to allocation error.\n");
 		return ERROR;
 	}
-
-	/* Checks if passenger with that name already exists in the list */
-	if(GetPassengerData(ppl, szName) != NULL){
-		berror("Person already exists.");	
-		return ERROR;
-	}
-
-	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge); 
 
 	/* If list is empty, inserts passenger in first position */
 	bdebug("Adding passenger to list.");
 	if(ppl->iLength == 0 || ppl->ppFirst == NULL){
 		ppl->ppFirst = ppNewPassenger;	
 		ppl->iLength++;
-      ppNewPassenger = NULL;
+		ppNewPassenger = NULL;
 		return OK;
 	}
 
@@ -252,7 +253,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 		/* This should be prevented before this function is invoked. This is here as a precaution. */
 		if(ppCurrent->ppdData->iSeatNumber == iSeatNumber){
 			printf("Seat number %d is taken.\n", iSeatNumber);
-         _DestroyPassenger(ppNewPassenger);
+			_DestroyPassenger(ppNewPassenger);
 			iStatus = ERROR;
 			break;
 		}
@@ -263,7 +264,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 			if(ppCurrent->ppNext == NULL){
 				ppCurrent->ppNext = ppNewPassenger;
 				ppl->iLength++;
-            iStatus = OK;
+				iStatus = OK;
 				break;
 			} 
 
@@ -276,7 +277,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 			ppPrev->ppNext = ppNewPassenger;
 			ppNewPassenger->ppNext = ppCurrent;
 			ppl->iLength++;
-         iStatus = OK;
+		        iStatus = OK;
 			break;
 		}
 	}
