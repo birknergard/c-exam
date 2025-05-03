@@ -113,7 +113,7 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl);
 
 int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge);
 int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat);
-void GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
 
 int InternalFlightListTest();
 

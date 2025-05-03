@@ -14,16 +14,6 @@
 #include "util.h"
 #include "debug.h"
 
-/* 
- * Checks if a name is of valid length.
- * NOTE: Since this is repeated several places i made this wrapper function
- * */
-static int _ValidName(char szName[]){
-   if(iNameLength > MAX_NAME){
-      bdebug("Name exceeds maximum characters.\n");
-      return NULL;
-   }
-}
 /*
  * Internal method to compare PASSENGER structs.
  * Returns 0 (OK) if equal, else 1 (ERROR)
@@ -705,7 +695,6 @@ int DestroyFlightList(FLIGHT_LIST *pfl){
  * Checks if a flights passengerlist is empty, given its ID
  * */
 static int _FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]){
-
    /* Declare pointer */
    FLIGHT *pfFlight = NULL;
 
@@ -864,9 +853,6 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
 static int _PassengerExists(FLIGHT_LIST *pfl, char szName[]){
    /* If exists remains the same, return initial value */
    int i, iExists = 1;
-
-   /* Check that name input is within bounds before comparison */
-
 
    /* Checks every passenger in array for whether it exists or not */
    for(i = 0; i < pfl->iLength; i++){
@@ -1214,18 +1200,18 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl){
    return;
 }
 /*
- * Gets a list of every flight a passenger is booked to 
+ * Gets a list of every flight a passenger is booked to, returns the number of flights
  * */
-void GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
    /* Declare variables */
    FLIGHT *pfCurrentFlight = NULL;
    PASSENGER_NODE *ppnPassenger = NULL;
-   int n, iStatus, iFlightFound = 0;
+   int n, iFlightsFound = 0;
 
    /* Checks if passenger exists */
    if(_PassengerExists(pfl, szName) != 0){
-      printf("%s is not a passenger for any flights.\n", szName); 
-      return;
+      /* Since the passenger has no flights, we return the initialized value (0) */
+      return iFlightsFound;
    };
    
    /* Traverse the whole flight list, printing every flight that the passenger is a part of */
@@ -1235,9 +1221,9 @@ void GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
       /* Traverse the passenger list, printing when finding match to input name */
       ppnPassenger = pfCurrentFlight->pfdData->pplPassengers->ppnHead;
       while(ppnPassenger != NULL){
-         if(strcmp(ppnPassenger->ppPassenger->pszName, szPassengerName) == 0){
-            iFlightFound++;
-            if(iFlightFound > 1){
+         if(strcmp(ppnPassenger->ppPassenger->pszName, szName) == 0){
+            iFlightsFound++;
+            if(iFlightsFound > 1){
                _PrintFlightSimple(pfCurrentFlight);
             }
          }
@@ -1250,6 +1236,8 @@ void GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
    /* Cleanup */
    pfCurrentFlight = NULL;
    ppnPassenger = NULL;
+
+   return iFlightsFound;
 }
 
 /*
