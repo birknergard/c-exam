@@ -61,7 +61,7 @@ int main(void){
  * */
 void OptOne(void *vpflFlightList){
     /* Declaring variables */
-    FLIGHT_LIST *pflFlightList = (void *) vpflFlightList;
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszID = NULL, *pszDestination = NULL;
     int iDepartureTime = -1;
 
@@ -83,8 +83,7 @@ void OptOne(void *vpflFlightList){
 	"Enter the flights destination name:",
 	"Enter the flights departure time (just numbers):",
 	"Enter a new flight ID. Has to be exactly 4 characters:"
-	}, (char *) "SIS",
-	&pszDestination, &iDepartureTime, &pszID 
+	}, (char *) "SIS", &pszDestination, &iDepartureTime, &pszID 
     );
 
     /*Test output*/
@@ -104,22 +103,37 @@ void OptOne(void *vpflFlightList){
  * Option 2: Add passenger to flight
  * */
 void OptTwo(void *vpflFlightList){
+    /* Declaring variables */
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszFlightID = NULL, *pszPassengerName = NULL;
     int iSeatNumber = -1, iPassengerAge = -1;
     
     pszFlightID = (char *) malloc(MAX_INPUT);
     pszPassengerName = (char *) malloc(MAX_INPUT);
 
-    if(pszFlightID != NULL && pszPassengerName != NULL){
-        GetInput(4, (char *[]) {
-            "Enter Flight ID:",
-            "Enter Passenger Name:",
-            "Enter Seat Number:",
-            "Enter Passenger Age:"
-        }, (char *) "SSII", &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
-
-        bdebug("Flight ID: %sPassenger Name: %sSeat: %d, Age: %d\n", pszFlightID, pszPassengerName, iSeatNumber, iPassengerAge);
+    if(pszFlightID == NULL){
+	return;
     }
+
+    if(pszPassengerName == NULL){
+	free(pszFlightID);
+	pszFlightID = NULL;
+	return;
+    }
+
+    GetInput(4, (char *[]) {
+	"Enter Flight ID:",
+	"Enter Passenger Name:",
+	"Enter Seat Number:",
+	"Enter Passenger Age:"
+    }, (char *) "SSII", &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
+
+    //bdebug("Flight ID: %sPassenger Name: %sSeat: %d, Age: %d\n", pszFlightID, pszPassengerName, iSeatNumber, iPassengerAge); 
+    
+    /* Print flight list */
+    /* Check if FlightList is empty */
+    /* If not, allow to add passenger on id*/
+    AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName, iPassengerAge);
 
     free(pszFlightID);
     free(pszPassengerName);

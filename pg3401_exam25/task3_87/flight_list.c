@@ -140,7 +140,6 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
    while(pfCurrent != NULL){
       pfTemp = pfCurrent;
       pfCurrent = pfCurrent->pfNext;
-      printf("->Freeing node\n");
       DestroyFlight(pfTemp);
    }
 
@@ -150,7 +149,6 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
    ppfl->pfFirst = NULL; 
    ppfl->pfLast = NULL; 
 
-   printf("Freeing list.\n");
    free(ppfl);
 
    return OK;
