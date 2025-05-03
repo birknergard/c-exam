@@ -15,10 +15,10 @@
  * szArgMsg is an array of strings, where each string is the message to print when asking for input 
  * szTypeFlags is a string with each arguments type. compatible with *string and *int. example input = "SSII"
  * ... is the variables adresses, so that it assigns at the correct place. */
-int GetInput(char *szArgMessages[], char *szTypeFlags, ...){
+int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	/* Declaring variables */
 	va_list vaPointers; 
-	int iArgC = strlen(szTypeFlags), iStatus, iBuffer, i;
+	int iStatus, iBuffer, i;
   	int *piArg = NULL;
 	char **pszArg = NULL, *pszBuffer = NULL;
 
@@ -27,32 +27,50 @@ int GetInput(char *szArgMessages[], char *szTypeFlags, ...){
 
 	/* Run for each argument */
 	for(i = 0; i < iArgC; i++){
-
-
 		/* If type is string */
 		if(szTypeFlags[i] == 'S'){
 			/* Prints message */
 			printf("%s\n", szArgMessages[i]);
 
+			/* Allocate to buffer */
+			pszBuffer = (char *) malloc(MAX_INPUT);
+			if(pszBuffer == NULL){
+				iStatus = ERROR;
+				break;
+			}
+
 			pszArg = va_arg(vaPointers, char**);
 			fgets(*pszArg, MAX_INPUT, stdin);
+			(*pszArg)[strcspn(*pszArg, "\r\n")] = 0;
 		
 		/* If type is int */
 		} else if(szTypeFlags[i] == 'I'){
-			piArg = va_arg(vaPointers, int*);
+			piArg = va_arg(vaPointers, int *);
 
 			/* Loops until we get correct input */
-			while(piArg == NULL){
+			while(1){
+				/* Allocate to buffer */
+				pszBuffer = (char *) malloc(MAX_INPUT);
+				if(pszBuffer == NULL){
+					iStatus = ERROR;
+					free(pszBuffer);
+					break;
+				}
 				/* Print message to terminal */
-				printf("%s:\n", szArgMessages[i]);
+				printf("%s\n", szArgMessages[i]);
 
 				/* Get user input, load into buffer first */
 				fgets(pszBuffer, MAX_INPUT, stdin);
+				/* Remove newline from pressing enter */
+				pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
 
-				/* Convert buffer into integer */
+				/* Attempt to convert buffer into integer */
 				if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
 					*piArg = iBuffer;
+					break;
 				}
+
+				free(pszBuffer);
 			}
 		} else {
 			va_end(vaPointers);		

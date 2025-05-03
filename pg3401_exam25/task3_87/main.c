@@ -61,32 +61,37 @@ int main(void){
  * */
 void OptOne(void *vpflFlightList){
     /* Declaring variables */
+    FLIGHT_LIST *pflFlightList = (void *) vpflFlightList;
     char *pszID = NULL, *pszDestination = NULL;
     int iDepartureTime = -1;
 
+    // TODO: Implement this in flight_list.c
+    // PrintFlightSimple((FLIGHT_LIST *) vpflFlightList);
+
     pszID = (char *) malloc(MAX_INPUT);
-    pszDestination = (char *) malloc(MAX_INPUT);
     if(pszID == NULL) 
 	return;
 
+    pszDestination = (char *) malloc(MAX_INPUT);
     if(pszDestination == NULL){
 	free(pszID);
 	pszID = NULL;
 	return;
     }
-    GetInput(
-        (char *[]) {
-	"Enter a new Flight ID. Has to be exactly 4 characters:",
+
+    GetInput(3, (char *[]) {
 	"Enter the flights destination name:",
-	"Enter the flights departure time (just numbers):"
-	}, (char *) "SSI",
-	&pszID, &pszDestination, &iDepartureTime 
+	"Enter the flights departure time (just numbers):",
+	"Enter a new flight ID. Has to be exactly 4 characters:"
+	}, (char *) "SIS",
+	&pszDestination, &iDepartureTime, &pszID 
     );
 
-    /* Do stuff */
-    
+    /*Test output*/
+    bdebug("%s, %d, %s", pszDestination, iDepartureTime, pszID);
 
-    
+    /* Do stuff */
+    AddFlight(pflFlightList, pszID, iDepartureTime, pszDestination);
 
     /* Cleanup */
     free(pszID);
@@ -106,12 +111,12 @@ void OptTwo(void *vpflFlightList){
     pszPassengerName = (char *) malloc(MAX_INPUT);
 
     if(pszFlightID != NULL && pszPassengerName != NULL){
-        GetInput((char *[]) {
+        GetInput(4, (char *[]) {
             "Enter Flight ID:",
             "Enter Passenger Name:",
             "Enter Seat Number:",
             "Enter Passenger Age:"
-        }, (char *){"SSII"}, &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
+        }, (char *) "SSII", &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
 
         bdebug("Flight ID: %sPassenger Name: %sSeat: %d, Age: %d\n", pszFlightID, pszPassengerName, iSeatNumber, iPassengerAge);
     }
@@ -129,9 +134,9 @@ void OptThree(void *vpflFlightList){
 
     int iFlightNumber = -1;
 
-    GetInput((char *[]) {
+    GetInput(1, (char *[]) {
         "Enter Flight Number:"
-    }, (char *){"I"}, &iFlightNumber);
+    }, (char *) "I", &iFlightNumber);
 
     bdebug("Flight Number: %d\n", iFlightNumber);
 }
@@ -145,7 +150,7 @@ void OptFour(void *vpflFlightList){
     pszDestination = (char *) malloc(MAX_INPUT);
 
     if(pszDestination != NULL){
-        GetInput((char*[]) {
+        GetInput(1, (char*[]) {
             "Enter Destination:"
         }, (char *){"S"}, &pszDestination);
 
@@ -165,7 +170,7 @@ void OptFive(void *vpflFlightList){
     pszFlightID = (char *) malloc(MAX_INPUT);
 
     if(pszFlightID != NULL){
-        GetInput((char*[]) {
+        GetInput(1, (char*[]) {
             "Enter Flight ID to delete:"
         }, (char *){"S"}, &pszFlightID);
 
@@ -191,7 +196,7 @@ void OptSix(void *vpflFlightList){
     pszName = (char *) malloc(MAX_INPUT);
 
     if(pszFlightID != NULL && pszName != NULL){
-        GetInput((char*[]) {
+        GetInput(3, (char*[]) {
             "Enter Flight ID:",
             "Enter Passenger Name:",
             "Enter New Seat Number:"
@@ -217,7 +222,7 @@ void OptSeven(void *vpflFlightList){
     pszName = (char *) malloc(MAX_INPUT);
 
     if(pszName != NULL){
-        GetInput((char*[]) {
+        GetInput(1, (char*[]) {
             "Enter Passenger Name:"
         }, (char *){"S"}, &pszName);
 

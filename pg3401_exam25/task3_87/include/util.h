@@ -6,6 +6,6 @@
 
 int StrncpyLowercase(char szLowerString[], char szString[], int iMaxBuffer);
 int ParsePositiveInteger(char *psz);
-int GetInput(char *szArgMessages[], char *szTypeFlags, ... );
+int GetInput(int iArgC, char *szArgMessages[], char *szTypeFlags, ... );
 
 #endif /*ndef ___UTIL_H___ */

@@ -21,7 +21,7 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
    }
 
    if(iIDSize != 4){
-      berror("Invalid ID. Needs to be %d characters long\n", MAX_ID - 1);
+      berror("Invalid ID (%d characters). Needs to be %d characters long\n", iIDSize,  MAX_ID - 1);
       return NULL;
    
    };

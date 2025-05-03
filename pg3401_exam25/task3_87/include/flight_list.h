@@ -71,6 +71,7 @@ void PrintPassengers(FLIGHT_DATA *pfd);
 /* Prints the flight list to the terminal */
 int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
+void PrintFlightListSimple(FLIGHT_LIST *pfl);
 
 int AddPassengerToFlight(FLIGHT_LIST *pf, char szFlightID[], int iSeatNumber, char szName[], int iAge);
 int ChangePassengerSeat(FLIGHT_LIST *pf, char szFlightID[], char szName[], int iNewSeat);
