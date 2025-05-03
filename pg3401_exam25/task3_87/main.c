@@ -64,9 +64,10 @@ void OptOne(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszID = NULL, *pszDestination = NULL;
     int iDepartureTime = -1;
+    int iFlightAdded;
 
-    // TODO: Implement this in flight_list.c
-    // PrintFlightSimple((FLIGHT_LIST *) vpflFlightList);
+    puts("Current Flight List");
+    PrintFlightListSimple(pflFlightList);
 
     pszID = (char *) malloc(MAX_INPUT);
     if(pszID == NULL) 
@@ -80,17 +81,18 @@ void OptOne(void *vpflFlightList){
     }
 
     GetInput(3, (char *[]) {
+	"Enter a new flight ID. Has to be exactly 4 characters:",
 	"Enter the flights destination name:",
-	"Enter the flights departure time (just numbers):",
-	"Enter a new flight ID. Has to be exactly 4 characters:"
-	}, (char *) "SIS", &pszDestination, &iDepartureTime, &pszID 
+	"Enter the flights departure time (\'HHMM\', example: 1705):",
+	}, (char *) "SSI", &pszID, &pszDestination, &iDepartureTime 
     );
 
-    /*Test output*/
-    bdebug("%s, %d, %s", pszDestination, iDepartureTime, pszID);
-
     /* Do stuff */
-    AddFlight(pflFlightList, pszID, iDepartureTime, pszDestination);
+    iFlightAdded = AddFlight(pflFlightList, pszID, iDepartureTime, pszDestination);
+    if(iFlightAdded == OK){
+	printf("Flight added on id %s!\n\n", pszID);
+
+    } else printf("Could not add flight.\n\n");
 
     /* Cleanup */
     free(pszID);
@@ -121,54 +123,76 @@ void OptTwo(void *vpflFlightList){
 	return;
     }
 
+    /* Print flight list */
+    printf("Here are the current flights in the list\n");
+    PrintFlightListSimple(pflFlightList);
+    puts("\n");
+
     GetInput(4, (char *[]) {
-	"Enter Flight ID:",
-	"Enter Passenger Name:",
-	"Enter Seat Number:",
-	"Enter Passenger Age:"
+	"Enter flight ID (4 characters/numbers):",
+	"Enter passenger name:",
+	"Enter seat number:",
+	"Enter passenger age:"
     }, (char *) "SSII", &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
 
-    //bdebug("Flight ID: %sPassenger Name: %sSeat: %d, Age: %d\n", pszFlightID, pszPassengerName, iSeatNumber, iPassengerAge); 
-    
-    /* Print flight list */
-    /* Check if FlightList is empty */
+
     /* If not, allow to add passenger on id*/
     AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName, iPassengerAge);
 
     free(pszFlightID);
     free(pszPassengerName);
+    pflFlightList = NULL;
     pszFlightID = NULL;
     pszPassengerName = NULL;
 }
 
 /*
- * Option 3
+ * Option 3: Retrieve flight N from the list and print all data associated
  * */
 void OptThree(void *vpflFlightList){
-
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     int iFlightNumber = -1;
+
+    printf("Here are the current flights in the list\n");
+    PrintFlightListSimple(pflFlightList);
+    puts("\n");
 
     GetInput(1, (char *[]) {
         "Enter Flight Number:"
     }, (char *) "I", &iFlightNumber);
 
-    bdebug("Flight Number: %d\n", iFlightNumber);
+    PrintFlight(pflFlightList, iFlightNumber);
+
+    pflFlightList = NULL;
 }
 
 /*
  * Option 4: Find flight that matches destination, return item number
+ *
+ * PS: I have not controlled for destination being unique nor printing every flight
+ *     a given destination (TODO:?), so the function will only print the first match
  * */
 void OptFour(void *vpflFlightList){
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
 
+    int iFlightNumber;
     char *pszDestination = NULL;
+
     pszDestination = (char *) malloc(MAX_INPUT);
+    if(pszDestination == NULL){
+	pflFlightList = NULL;
+	return;
+    }
 
-    if(pszDestination != NULL){
-        GetInput(1, (char*[]) {
-            "Enter Destination:"
-        }, (char *){"S"}, &pszDestination);
+    GetInput(1, (char*[]) {
+	"Enter Destination:"
+    }, (char *) "S", &pszDestination);
 
-        bdebug("Destination: %s\n", pszDestination);
+    iFlightNumber = GetFlightNumberByDestination(pflFlightList, pszDestination);
+    if(iFlightNumber > 0){
+	PrintFlight(pflFlightList, iFlightNumber);
+    } else {
+	printf("Flight with matching destination could not be found.\n\n");
     }
 
     free(pszDestination);
@@ -179,17 +203,29 @@ void OptFour(void *vpflFlightList){
  * Option 5: Delete a flight
  * */
 void OptFive(void *vpflFlightList){
-
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszFlightID = NULL;
+    int iFlightDeleted;
+
     pszFlightID = (char *) malloc(MAX_INPUT);
-
-    if(pszFlightID != NULL){
-        GetInput(1, (char*[]) {
-            "Enter Flight ID to delete:"
-        }, (char *){"S"}, &pszFlightID);
-
-        bdebug("Deleting Flight ID: %s\n", pszFlightID);
+    if(pszFlightID == NULL){
+	pflFlightList = NULL;
+	return;
     }
+
+    printf("Here are the current flights in the list\n");
+    PrintFlightListSimple(pflFlightList);
+    puts("\n");
+
+    GetInput(1, (char*[]) {
+	"\nEnter flight ID to delete:"
+    }, (char *) "S", &pszFlightID);
+
+    bdebug("Deleting Flight ID: %s\n", pszFlightID);
+    iFlightDeleted = RemoveFlight(pflFlightList, pszFlightID);
+    if(iFlightDeleted == 0){
+	printf("Flight with id %s was deleted!\n\n", pszFlightID);
+    } else printf("Flight could not be deleted.\n\n");
 
     free(pszFlightID);
     pszFlightID = NULL;
@@ -199,15 +235,26 @@ void OptFive(void *vpflFlightList){
  * Option 6: Change passenger seat
  * */
 void OptSix(void *vpflFlightList){
-    /*
-    char *pszFlightID, *szName; 
-    int iNewSeat;
-    */
+    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+
     char *pszFlightID = NULL, *pszName = NULL;
     int iNewSeat = -1;
 
     pszFlightID = (char *) malloc(MAX_INPUT);
+    if(pszFlightID == NULL){
+	pflFlightList = NULL;
+	return NULL;
+    
+    }
+
     pszName = (char *) malloc(MAX_INPUT);
+    if(pszName == NULL){
+	free(pszFlightID);
+	pszFlightID = NULL;
+	pflFlightList = NULL;
+	return NULL;
+    
+    }
 
     if(pszFlightID != NULL && pszName != NULL){
         GetInput(3, (char*[]) {

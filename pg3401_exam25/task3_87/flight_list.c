@@ -88,7 +88,37 @@ static FLIGHT *_CreateFlight(char szID[], int iDepartureTime, char szDestination
 /*
  *
  * */
-static int DestroyFlight(FLIGHT *pf){
+static FLIGHT *_GetFlightByID(FLIGHT_LIST *pfl, char szID[]){
+   FLIGHT *pfCurrent = NULL;
+
+   if(pfl->pfFirst == NULL || pfl->pfLast == NULL){
+      berror("Can't search on an empty list.\n");
+      return NULL;
+   }
+
+   if(strlen(szID) != 4){
+      printf("Invalid flight id! Needs to be 4 digits/characters");
+      return NULL;
+   }
+
+   pfCurrent = pfl->pfFirst;
+
+   /* Check the rest */
+   while(pfCurrent != NULL){
+      if(strncmp(pfCurrent->pfdData->szID, szID, MAX_ID) == 0){
+         return pfCurrent;
+      }
+
+      pfCurrent = pfCurrent->pfNext;
+   }
+
+   return pfCurrent;
+}
+
+/*
+ *
+ * */
+static int _DestroyFlight(FLIGHT *pf){
    int iPListDestroyed;
 
    if(pf == NULL){
@@ -107,6 +137,7 @@ static int DestroyFlight(FLIGHT *pf){
 
    return OK;
 }
+
 
 /*
  *
@@ -140,7 +171,7 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
    while(pfCurrent != NULL){
       pfTemp = pfCurrent;
       pfCurrent = pfCurrent->pfNext;
-      DestroyFlight(pfTemp);
+      _DestroyFlight(pfTemp);
    }
 
    pfCurrent = NULL;
@@ -157,12 +188,43 @@ int DestroyFlightList(FLIGHT_LIST *ppfl){
 /*
  *
  * */
-int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
+int FlightListIsEmpty(FLIGHT_LIST *pfl){
+   if(pfl != NULL){
+      return pfl->iLength == 0;
+   } else {
+      return -1; 
+   }
+}
+
+/*
+ *
+ * */
+int FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]){
+   FLIGHT *pfFlight = NULL;
+
+   if(FlightListIsEmpty(pfl) != 0){
+      pfFlight = _GetFlightByID(pfl, szID);   
+      if(pfFlight == NULL){
+         berror("flight does not exist.");
+         return -1;
+      }
+      if(pfFlight->pfdData->pplPassengers != NULL){
+         return pfFlight->pfdData->pplPassengers->iLength == 0;
+      }
+   } 
+
+   return -1; 
+}
+
+/*
+ *
+ * */
+int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
    FLIGHT *pfCurrent = NULL;
    int iPosition = 1; /* Starts at 1 */
 
    /* Checks if list if empty */
-   if(fl.pfFirst == NULL || fl.pfLast == NULL){
+   if(pfl->pfFirst == NULL || pfl->pfLast == NULL){
       berror("Can't search on an empty list.\n");
       return -1;
    }
@@ -173,13 +235,14 @@ int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
       return -1;
    }
 
-   pfCurrent = fl.pfFirst;
+   pfCurrent = pfl->pfFirst;
 
    /* Searches the list until it reaches a null pointer (end) */
    while(pfCurrent != NULL){
 
       /* Since we checked the character length of szDestination beforehand, strcmp is safe */
       if(strcmp(pfCurrent->pfdData->pszDestination, szDestination) == 0){
+         pfCurrent = NULL;
          return iPosition;
       }
 
@@ -191,35 +254,6 @@ int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]){
    return -1;
 }
 
-/*
- *
- * */
-static FLIGHT *_GetFlightByID(FLIGHT_LIST fl, char szID[]){
-   FLIGHT *pfCurrent = NULL;
-
-   if(fl.pfFirst == NULL || fl.pfLast == NULL){
-      berror("Can't search on an empty list.\n");
-      return NULL;
-   }
-
-   if(strlen(szID) != 4){
-      printf("Invalid flight id! Needs to be 4 digits/characters");
-      return NULL;
-   }
-
-   pfCurrent = fl.pfFirst;
-
-   /* Check the rest */
-   while(pfCurrent != NULL){
-      if(strncmp(pfCurrent->pfdData->szID, szID, MAX_ID) == 0){
-         return pfCurrent;
-      }
-
-      pfCurrent = pfCurrent->pfNext;
-   }
-
-   return pfCurrent;
-}
 
 /*
  * Gets FLIGHT by position in list. Starts at 1 (not zero-indexed) 
@@ -310,9 +344,9 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], int iDepartureTime, char szDestinat
 int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge){
    FLIGHT *pf = NULL;
 
-   pf = _GetFlightByID(*pfl, szFlightID);
+   pf = _GetFlightByID(pfl, szFlightID);
    if(pf == NULL){
-      printf("No flight exists on that ID.");
+      printf("No flight exists on that ID.\n");
    }
 
    if(iSeatNumber > MAX_SEATS || iSeatNumber < 0){
@@ -334,9 +368,9 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
       return ERROR;
    }
 
-   pf = _GetFlightByID(*pfl, szFlightID);
+   pf = _GetFlightByID(pfl, szFlightID);
    if(pf == NULL){
-      printf("No flight exists on that ID.");
+      printf("No flight exists on that ID.\n");
    }
 
    return ChangeSeat(pf->pfdData->pplPassengers, szName, iNewSeat);
@@ -356,7 +390,7 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
        return ERROR;
    }
 
-   if((pfTarget = _GetFlightByID(*pfl, szID)) == NULL){
+   if((pfTarget = _GetFlightByID(pfl, szID)) == NULL){
       printf("Flight with ID -> %s does not exist.\n", szID); 
       return ERROR;
    }
@@ -385,7 +419,7 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
    pfTarget->pfPrev = NULL;
 
    /* Destroys the node (See function definition) */
-   DestroyFlight(pfTarget);
+   _DestroyFlight(pfTarget);
 
    /* Decrements the list counter */
    pfl->iLength--;
@@ -402,7 +436,7 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
  * */
 int PrintFlight(FLIGHT_LIST *pfl, int n){
    if(pfl->iLength == 0){
-      printf("No flights have been added to the list\n");
+      printf("-> no flights have been added to the list\n");
       return ERROR;
    }
 
@@ -437,21 +471,53 @@ int PrintFlight(FLIGHT_LIST *pfl, int n){
  * 
  * */
 void PrintFlightList(FLIGHT_LIST *pfl) {
-   int i;
+   int n;
+
+   if(pfl->iLength == 0){
+      printf("-> no flights have been added to the list\n");
+      return;
+   }
+
+   for(n = 1; n <= pfl->iLength; n++){
+      if(PrintFlight(pfl, n) == ERROR){
+         break;
+      }
+   }
+   return;
+}
+
+void PrintFlightListSimple(FLIGHT_LIST *pfl){
+   int n;
+   FLIGHT *pfCurrent; 
+   FLIGHT_DATA *pfdData;
 
    if(pfl->iLength == 0){
       printf("No flights have been added to the list\n");
       return;
    }
 
-   for(i = 1; i <= pfl->iLength; i++){
-      if(PrintFlight(pfl, i) == ERROR){
+   pfCurrent = pfl->pfFirst;
+
+   for(n = 1; n <= pfl->iLength; n++){
+      if(pfCurrent == NULL){
          break;
       }
+
+      pfdData = pfCurrent->pfdData;
+      printf(
+         "%d-> #%s,  %s,  departs at %d",
+         n, pfdData->szID, pfdData->pszDestination, pfdData->iDepartureTime
+      ); 
+      printf(", %d passengers on flight\n", pfdData->pplPassengers->iLength);
+      pfCurrent = pfCurrent->pfNext;
    }
 
+
+   pfCurrent = NULL;
    return;
 }
+
+
 
 /*
 int InternalFlightListTest() {

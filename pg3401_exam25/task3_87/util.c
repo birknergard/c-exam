@@ -32,13 +32,6 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 			/* Prints message */
 			printf("%s\n", szArgMessages[i]);
 
-			/* Allocate to buffer */
-			pszBuffer = (char *) malloc(MAX_INPUT);
-			if(pszBuffer == NULL){
-				iStatus = ERROR;
-				break;
-			}
-
 			pszArg = va_arg(vaPointers, char**);
 			fgets(*pszArg, MAX_INPUT, stdin);
 			(*pszArg)[strcspn(*pszArg, "\r\n")] = 0;
@@ -67,20 +60,20 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 				/* Attempt to convert buffer into integer */
 				if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
 					*piArg = iBuffer;
+					free(pszBuffer);
 					break;
 				}
-
 				free(pszBuffer);
+
 			}
 		} else {
-			va_end(vaPointers);		
 			iStatus = ERROR;
 			break;
 		}
 	}
 
 	iStatus = OK;
-
+	va_end(vaPointers);		
 	/* Removing danglers */
 	pszArg = NULL;
 	pszBuffer = NULL;

@@ -58,7 +58,11 @@ int DestroyFlightList(FLIGHT_LIST *ppfl);
 /* Getter functions */
 FLIGHT *GetFlightByPosition(FLIGHT_LIST fl, int n);
 
-int _GetFlightNumberByDestination(FLIGHT_LIST fl, char szDestination[]);
+int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]);
+
+int FlightListIsEmpty(FLIGHT_LIST * pfl);
+
+int FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]);
 
 /* List modification functions - return OK or ERROR */
 int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestination[]);

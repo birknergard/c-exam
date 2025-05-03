@@ -206,6 +206,7 @@ int AddPassenger(PASSENGER_LIST *ppl, int iSeatNumber, char szName[], int iAge){
 	PASSENGER *ppPrev = NULL;		
 	int iCompareResult, iStatus;
 
+	ppNewPassenger = _CreatePassenger(iSeatNumber, szName, iAge);
 	/* Checks if creation failed */
 	if(ppNewPassenger == NULL){
 		berror("Could not create add new passenger due to allocation error.\n");
