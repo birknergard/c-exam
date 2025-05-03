@@ -14,32 +14,32 @@
 #define MAX_ID 5
 #define MAX_DESTINATION 1028
 #define MAX_SEATS 64
+#define MAX_NAME 256
 
-/* The longest name (according to google) is 747. So this seems like a reasonable max :) */
-#define MAX_NAME 1028
-
-typedef struct _PASSENGER_INFO{
-    char *pszName;
-    int iAge;
-} PASSENGER_INFO;
+#pragma pack(1)
+/*
+ * Structure for holding passengers name and age.
+ * The data structure only accounts for unique names,
+ * therefore a passenger can have different age on different flights but still be the same person.
+ * A fix for this is having Flight list keep a record of every unique passenger.
+ *
+ * PREFIX: p - (p)assenger
+ * */
+typedef struct _PASSENGER{
+   char *pszName;
+   int iAge;
+} PASSENGER;
+#pragma pack()
 
 #pragma pack (1)
 /*
- * PREFIX: pd - (p)assenger (d)ata
+ * PREFIX: pn - (p)assenger (n)ode
  * */
-typedef struct _PASSENGER_DATA{
+typedef struct _PASSENGER_NODE {
+    struct _PASSENGER_NODE *ppnNext;
     int iSeatNumber;
-    char *pszName;
-    int iAge;
-} PASSENGER_DATA;
-
-/*
- * PREFIX: p - (p)assenger
- * */
-typedef struct _PASSENGER {
-    struct _PASSENGER *ppNext;
-    PASSENGER_DATA *ppdData; /*Holds a pointer to the data instead of holding the data itself*/
-} PASSENGER;
+    _PASSENGER *ppPassenger; /*Holds a pointer to the data instead of holding the data itself*/
+} PASSENGER_NODE;
 #pragma pack ()
 
 #pragma pack (1)
@@ -47,7 +47,7 @@ typedef struct _PASSENGER {
  * PREFIX: pl - (p)assenger (l)ist
  * */
 typedef struct _PASSENGER_LIST{
-    PASSENGER *ppFirst;
+    PASSENGER *ppHead;
     int iLength;
 } PASSENGER_LIST;
 #pragma pack ()
@@ -81,6 +81,7 @@ typedef struct _FLIGHT {
 typedef struct _FLIGHT_LIST {
    FLIGHT *pfFirst;
    FLIGHT *pfLast;
+   PASSENGER **pdUniquePassengers;
    int iLength;
 } FLIGHT_LIST;
 
