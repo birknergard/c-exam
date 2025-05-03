@@ -47,7 +47,7 @@ typedef struct _PASSENGER_NODE {
  * */
 #pragma pack (1)
 typedef struct _PASSENGER_LIST{
-    PASSENGER_NODE *ppHead;
+    PASSENGER_NODE *ppnHead;
     int iLength;
 } PASSENGER_LIST;
 #pragma pack ()
@@ -61,7 +61,6 @@ typedef struct _FLIGHT_DATA{
    char *pszDestination;
    int iDepartureTime;
    PASSENGER_LIST *pplPassengers;
-   int iUniquePassengers;
 } FLIGHT_DATA;
 
 #pragma pack()
@@ -72,7 +71,6 @@ typedef struct _FLIGHT_DATA{
 typedef struct _FLIGHT {
    struct _FLIGHT *pfNext;
    struct _FLIGHT *pfPrev;
-   int iSize;
    FLIGHT_DATA *pfdData;
 } FLIGHT;
 
@@ -82,7 +80,8 @@ typedef struct _FLIGHT {
 typedef struct _FLIGHT_LIST {
    FLIGHT *pfFirst;
    FLIGHT *pfLast;
-   PASSENGER **pdUniquePassengers;
+   PASSENGER **ppUniquePassengers;
+   int iUniquePassengers;
    int iLength;
 } FLIGHT_LIST;
 
@@ -114,7 +113,7 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl);
 
 int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge);
 int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat);
-int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
+void GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
 
 int InternalFlightListTest();
 
