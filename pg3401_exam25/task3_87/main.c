@@ -35,6 +35,47 @@ int main(void){
 	AddOption(pMenu, "Change passengers seat", OptSix);
 	AddOption(pMenu, "Find which flights passenger is on", OptSeven);
 	AddOption(pMenu, "View passengers multiple booked flights", OptEight);
+	AddOption(pMenu, "unique passengers", Secret);
+
+	AddFlight(pflFlights, "HH11", 1234, "Korea");
+
+	/*
+	bdebug("Test->Adding duplicate flight ...\n");
+	AddFlight(pflFlights, "HH11", 1234, "Korea");
+	AddFlight(pflFlights, "HH11", 3265, "Norway");
+
+	bdebug("Test->Adding some more flights\n");
+	AddFlight(pflFlights, "KK11", 1234, "NOrway");
+	AddFlight(pflFlights, "1123", 1234, "India");
+	AddFlight(pflFlights, "KEK1", 1234, "Japan");
+
+	bdebug("Test->Adding passengers ...\n");
+	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius", 10);
+	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte", 20);
+	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
+	Secret(pflFlights);
+
+	bdebug("Test->Adding duplicate passenger to HH11\n");
+	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
+
+	bdebug("Test->TEAdding known passenger to another flight\n");
+	AddPassengerToFlight(pflFlights, "1123", 2, "Bengt", 16);
+
+	bdebug("Test-> Printing whole flight list");
+	PrintFlightListSimple(pflFlights);
+
+	bdebug("Test-> Deleting flight");
+	RemoveFlight(pflFlights, "1123");
+
+	bdebug("Test-> Change seat of passenger");
+	ChangePassengerSeat(pflFlights, "HH11", "Marius", 3);
+
+	bdebug("Test-> Change seat of passenger to one that is taken");
+	ChangePassengerSeat(pflFlights, "HH11", "Marius", 26);
+
+	bdebug("Test-> Change seat of passenger to one that is out of bounds");
+	ChangePassengerSeat(pflFlights, "HH11", "Marius", 65);
+	*/
 
 	iStatus = StartMenu(pMenu, "Task 3");
     }
@@ -316,10 +357,20 @@ void OptSeven(void *vpflFlightList){
  * Option 8: Find passengers which are booked for more than one flight
  * */
 void OptEight(void *vpflFlightList){
-    FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+    //FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
+
 
     /* No input needed :) */
     printf("Looking for passengers on multiple flights...\n");
+}
+
+void Secret(void *vfl){
+    FLIGHT_LIST *fl = (FLIGHT_LIST *) vfl;
+    int i;
+    printf("Passengers = %d\n", fl->iUniquePassengers);
+    for(i = 0; i < fl->iUniquePassengers; i++){
+	printf("%s - %d\n", fl->ppUniquePassengers[i]->pszName, fl->ppUniquePassengers[i]->iAge);
+    }
 }
 
 

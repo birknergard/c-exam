@@ -41,6 +41,7 @@ void OptSeven(void *vpflFlightList);
  * */
 void OptEight(void *vpflFlightList);
 
+void Secret(void *vfl);
 #endif /*ndef ___TASK3_MAIN_H___ */
 
 

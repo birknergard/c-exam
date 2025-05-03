@@ -83,7 +83,12 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 
 	/* If MENU is empty */
 	if(*piOptionCount == 0){
+
+		/* Allocate pointer */
 		pMenu->pOptions = (OPTION **) malloc(sizeof(OPTION *));
+		if(pMenu->pOptions == NULL){
+			return ERROR;
+		}
 		pMenu->pOptions[0] = pNewOption;
 
 	/* If menu contains previous elements */
