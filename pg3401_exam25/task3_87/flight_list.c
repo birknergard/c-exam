@@ -269,7 +269,7 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 	if(ppl->iLength == 0 || ppl->ppnHead == NULL){
 		ppl->ppnHead = ppnNewPassenger;	
 		ppl->iLength++;
-		ppnNewPassenger = NULL;
+		//ppnNewPassenger = NULL;
 		return 0;
 	}
 
@@ -292,14 +292,6 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 	/* If not it continues until current reaches null pointer or finds correct adjacent node */
 	while(ppnCurrent != NULL){
 		iCompareResult = ppnCurrent->iSeatNumber < iSeatNumber;
-
-		/* This should be prevented before this function is invoked. This is here as a precaution. */
-		/*if(ppnCurrent->iSeatNumber == iSeatNumber){
-			printf("Seat number %d is taken.\n", iSeatNumber);
-			//_DestroyPassengerNode(ppnNewPassenger);
-			iStatus = 1;
-			break;
-		}*/
 
 		// Key is greater
 		if(iCompareResult > 0){
@@ -697,11 +689,12 @@ int DestroyFlightList(FLIGHT_LIST *pfl){
 
 /*
  * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
- * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
+ * If any flights have that destination count of flights is returned. Otherwise it returns -1.
  * */
-int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
+int PrintFlightsByDestination(FLIGHT_LIST *pfl, char szDestination[]){
    FLIGHT_NODE *pfnCurrent = NULL;
    int iPosition = 1; /* Starts at 1 */
+   int iFoundMatch = 0;
 
    /* Checks if list if empty */
    if(pfl->pfnHead == NULL || pfl->pfnTail == NULL){
@@ -723,16 +716,21 @@ int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]){
 
       /* Since we checked the character length of szDestination beforehand, strcmp is safe */
       if(strcmp(pfnCurrent->pfdData->pszDestination, szDestination) == 0){
-         pfnCurrent = NULL;
-         return iPosition;
+         PrintFlight(pfl, iPosition);
+         iFoundMatch++;
       }
 
       pfnCurrent = pfnCurrent->pfnNext;
       iPosition++;
    }
 
-   /* Returns invalid value if nothing was found */
-   return -1;
+
+   pfnCurrent = NULL;
+   /* Returns match count if more than 1, invalid value if nothing was found */
+   if(iFoundMatch > 0)
+      return iFoundMatch;
+   else return -1;
+   
 }
 
 
@@ -950,12 +948,7 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
    PASSENGER *ppNewPassenger = NULL;
    int iAddedPassenger;
 
-   /* TODO: use this somewhere?
-   int _FlightIsEmpty(FLIGHT_LIST *pfl, char szID[]){
-   */
-
    /* Retrieves a flight by its ID */
-   bdebug("_GetFlightByID()\n");
    pfnFlight = _GetFlightByID(pfl, szFlightID);
    if(pfnFlight == NULL){
       printf("No flight exists on that ID.\n");
@@ -964,19 +957,22 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
    /* Checks seat is within bounds */
    if(iSeatNumber > MAX_SEATS || iSeatNumber < 0){
       printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iSeatNumber, MAX_SEATS);
-      return ERROR;
+      return 1;
+   }
+
+   /* Retrieves unique passenger of that name from the list. 
+    NOTE: If two passengers have the same name, the last one added will be returned */
+   ppNewPassenger = _GetUniquePassenger(pfl, szName);
+   if(ppNewPassenger == NULL){
+      bdebug("Unique passenger not found.");
+      return 1;
    }
 
    /* Attempts to add unique passenger to the list. Does not add if person already exists. */
-   bdebug("_AddUniquePassenger()\n");
    if(_AddUniquePassenger(pfl, szName, iAge) == 0){
       bdebug("Added unique passenger.\n");
    };
 
-   bdebug("_GetUniquePassenger()\n");
-   /* Retrieves unique passenger of that name from the list. 
-    NOTE: If two passengers have the same name, the last one added will be returned */
-   ppNewPassenger = _GetUniquePassenger(pfl, szName);
 
    /* Attempts to add passenger to list */
    iAddedPassenger = _AddPassengerNode(pfnFlight->pfdData->pplPassengers, iSeatNumber, ppNewPassenger);
@@ -1281,7 +1277,6 @@ int PrintPassengersWithMultipleFlights(FLIGHT_LIST *pfl){
       return 1;
    }
    
-   /* The return value. If no people are printed we return 0. */
    iPersonPrinted = 0;
    /* Checks for every unique passenger */
    for(i = 0; i < pfl->iUniquePassengers; i++){
@@ -1311,5 +1306,6 @@ int PrintPassengersWithMultipleFlights(FLIGHT_LIST *pfl){
          }
       }
    }
-   return iPersonPrinted;
+   if(iPersonPrinted > 0) return 0;
+   else return 1;
 }

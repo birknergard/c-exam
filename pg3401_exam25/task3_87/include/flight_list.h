@@ -122,11 +122,6 @@ FLIGHT_LIST *CreateFlightList();
  * */
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
-/*
- * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
- * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
- * */
-int GetFlightNumberByDestination(FLIGHT_LIST *pfl, char szDestination[]);
 
 /*
  * Inserts a new flight at the head of the flight list 
@@ -141,7 +136,15 @@ int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestinati
  * */
 int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
-/* Prints all the passengers of a flight to the terminal */
+/*
+ * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
+ * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
+ * */
+int PrintFlightsByDestination(FLIGHT_LIST *pfl, char szDestination[]);
+
+/* 
+ * Prints all the passengers of a flight to the terminal 
+ * */
 int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]);
 
 /* 

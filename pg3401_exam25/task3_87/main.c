@@ -62,9 +62,6 @@ int main(void){
 	bdebug("Test-> Printing whole flight list");
 	PrintFlightListSimple(pflFlights);
 
-	bdebug("Test-> Deleting flight");
-	RemoveFlight(pflFlights, "1123");
-
 	bdebug("Test-> Change seat of passenger");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 3);
 
@@ -207,7 +204,7 @@ void OptThree(void *vpflFlightList){
 void OptFour(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
 
-    int iFlightNumber;
+    int iFlights;
     char *pszDestination = NULL;
 
     pszDestination = (char *) malloc(MAX_INPUT);
@@ -220,9 +217,9 @@ void OptFour(void *vpflFlightList){
 	"Enter Destination:"
     }, (char *) "S", &pszDestination);
 
-    iFlightNumber = GetFlightNumberByDestination(pflFlightList, pszDestination);
-    if(iFlightNumber > 0){
-	PrintFlight(pflFlightList, iFlightNumber);
+    iFlights = PrintFlightsByDestination(pflFlightList, pszDestination);
+    if(iFlights > 0){
+	printf("%d matches were found.\n", iFlights);
     } else {
 	printf("Flight with matching destination could not be found.\n\n");
     }
@@ -353,9 +350,11 @@ void OptSeven(void *vpflFlightList){
  * TODO: Implement here from API...
  * */
 void OptEight(void *vpflFlightList){
-    //FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
-
-
     /* No input needed :) */
+    int iPassengers;
     printf("Looking for passengers on multiple flights...\n");
+
+    iPassengers = PrintPassengersWithMultipleFlights((FLIGHT_LIST *) vpflFlightList);
+    if(iPassengers == 1)
+	printf("No valid passengers were found.\n");
 }
