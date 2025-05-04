@@ -2,7 +2,10 @@
  * TITLE: Flight list
  * AUTHOR: 87
  * DESCRIPTION:
+
+ TODO: if i have time, remove flight id validation from functions (its handled outside of the library)
  * */
+
 
 #include "flight_list.h" 
 
@@ -649,6 +652,16 @@ static int _DestroyFlight(FLIGHT_NODE *pfn){
    return 0;
 }
 
+/*
+ * Checks if FLIGHT ID is valid. returns 1 if false.
+ * */
+int isValidFlightID(char szFlightID[]){
+   if(strlen(szFlightID) == MAX_ID){
+      return 0;
+   }
+
+   return 1;
+}
 /*
  * Initializes the FLIGHT_LIST structure in the form of a unique pointer.
  * Internally it also creates a list of unique passenger pointers, which are what is added to 

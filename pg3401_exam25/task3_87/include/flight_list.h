@@ -122,6 +122,11 @@ FLIGHT_LIST *CreateFlightList();
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
 /*
+ * Verifies flight id is 4 characters long
+ * */
+int isValidFlightID(char szFlightID[]);
+
+/*
  * Checks the unique passenger list for whether a name exists
  * Used when taking input
  * */
@@ -168,7 +173,6 @@ int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]);
 int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
 void PrintFlightListSimple(FLIGHT_LIST *pfl);
-
 
 /*
  * Adds a passenger to a flight (given its Flight ID). 
