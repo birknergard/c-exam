@@ -34,7 +34,7 @@ typedef struct _THREAD_ARGS {
    /* Shared data */
    int iarrByteCount[BYTE_RANGE];
    BYTE byarrBuffer[BUFFER_SIZE];
-   int iBytesInBuffer; /* TODO: Rename this */
+   int iBytesInBuffer; 
 
    /* Filename for reader thread */
    char *szFileName;
@@ -53,12 +53,12 @@ void* ReaderThread(void* vpArgs) {
    int iBytesRead = 0;
    int iFileSize = 0;
 
-   /* Typecast pointer to arg struct (THEAD_ARGS) TODO: Change variable name, change type to STRUCT* and store a reference for each field locally for more clean code */
-   THREAD_ARGS targArgs = *(THREAD_ARGS *) vpArgs; 
-
+   /* Typecast pointer to arg struct (THEAD_ARGS) 
+    * and store a reference for each field locally for more clean code */
+   THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
 
    /* Opens file for reading */
-   fp = fopen(targArgs.szFileName, "rb");
+   fp = fopen(tData->szFileName, "r");
    if (fp == NULL) {
       perror("Failed to open file");
       exit(EXIT_FAILURE);
@@ -70,48 +70,50 @@ void* ReaderThread(void* vpArgs) {
       rewind(fp);
    }
 
-   printf("READER: Thread started!\n");
+   printf("READER: Thread started! File is of size %d \n", iFileSize);
    /* Runs thread execution until break condition */
    while (1) {
       /* Since data from previos loop has been read, we empty the memory buffer */
-      memset(targArgs.byarrBuffer, 0, BUFFER_SIZE);
+      memset(tData->byarrBuffer, 0, BUFFER_SIZE);
 
       /* Reads data into */
-      iBytesRead += fread((targArgs.byarrBuffer + targArgs.iBytesInBuffer), 1, BUFFER_SIZE - targArgs.iBytesInBuffer, fp);
+      iBytesRead += fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, 1, fp);
 
       /* Increments bytes shared bytes read counter by the bytes read during this loop */
-      targArgs.iBytesInBuffer++;
+      tData->iBytesInBuffer++;
 
       /* Break condition, should break when bytes read is equal to file size!! */
-      if(iBytesRead > iFileSize) {
+      if(iBytesRead == iFileSize) {
          /* When the whole file has been read, signal counter to count remaining data */
          printf("READER: No more bytes to read! Signaling counter to read remaining bytes.\n");
-         sem_post(&targArgs.semReaderDone);
-         pthread_mutex_unlock(&targArgs.muMutex);
+         pthread_mutex_unlock(&tData->muMutex);
+
+         /* Signal counter to continue */
+         sem_post(&tData->semReaderDone);
 
          /* And exit the loop */
          break;
       }
 
       /* If bytes read have hit the max buffer, signal the counter to start */
-      /* Signals counter thread to start */
-      if(targArgs.iBytesInBuffer == BUFFER_SIZE){
+      if(tData->iBytesInBuffer == BUFFER_SIZE){
+
+         printf("READER: Buffer is full! Signaling counter to start.\n");
 
          /* Unlocks the mutex and signals other thread to continue */
-         /* NOTE: Moved the mutex unlock to before we signal other thread to start, to avoid the thread attempting to
-          * modify data that is locked by the mutex */
-         pthread_mutex_unlock(&targArgs.muMutex);
+         pthread_mutex_unlock(&tData->muMutex);
 
          /* Increment the semaphore */
-         printf("READER: Buffer is full! Signaling counter to start.\n");
-         sem_post(&targArgs.semReaderDone);
+         sem_post(&tData->semReaderDone);
 
          /* Wait for available semaphore */
          printf("READER: Waiting for signal from counter...\n");
-         sem_wait(&targArgs.semCounterDone);
+
+         /* Signals counter thread to start */
+         sem_wait(&tData->semCounterDone);
 
          /* Locks the mutex to prevent data from being changed while running */
-         pthread_mutex_lock(&targArgs.muMutex);
+         pthread_mutex_lock(&tData->muMutex);
          printf("READER: Signal received! Continuing reader ...\n");
       }
    }
@@ -126,11 +128,14 @@ void* ReaderThread(void* vpArgs) {
 
 /* Renamed from B to Counter (since its main job is counting each byte in the buffer) */
 void* CounterThread(void* vpArgs) {
-   THREAD_ARGS targArgs = *(THREAD_ARGS *) vpArgs; 
-   int i;
+   /* Declaring variables */
+   int i, iReaderComplete = 0;
+
+   /* Casting void * to argument struct * */
+   THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
 
    /* Initializing counter array before counter loop starts */ 
-   memset(targArgs.iarrByteCount, 0, sizeof(int) * BYTE_RANGE);
+   memset(tData->iarrByteCount, 0, sizeof(int) * BYTE_RANGE);
 
    printf("COUNTER: Thread started!\n");
    /* Runs counter infinitely, or until break condition */
@@ -138,39 +143,48 @@ void* CounterThread(void* vpArgs) {
 
       /* waits for signal from reader */
       printf("COUNTER: Waiting for signal from reader ...\n");
-      sem_wait(&targArgs.semReaderDone);
+      sem_wait(&tData->semReaderDone);
 
       /* Locks mutex while counter is running to prevent unexpected changes */
-      pthread_mutex_lock(&targArgs.muMutex);
+      pthread_mutex_lock(&tData->muMutex);
       printf("COUNTER: Signal received! Starting counter...\n");
       /* "Signals" the reader to start again */
 
-      /* If bytes in buffer is still zero after reader has handled it,
-       * Break loop, theres no more data to count */
-      if(targArgs.iBytesInBuffer == 0){
-         printf("COUNTER: Buffer is empty! exiting counter ...\n");
-         break;
+      /* If bytes in buffer is less than max, that means the reader didnt have more
+       * data to read. therefore we can break the loop when this happens. */
+      if(tData->iBytesInBuffer < BUFFER_SIZE){
+         printf("COUNTER: Reader is done reading the file! Completing count ...\n");
+         iReaderComplete = 1;
       }
 
       /* Counts the number of a byte's occurence in the buffer */
-      for(i = 0; i < targArgs.iBytesInBuffer; i++){
-
+      for(i = 0; i < tData->iBytesInBuffer; i++){
          /* Indexes by the BYTE (value between 0 and MAX_RANGE) and increments that value */
-         (targArgs.iarrByteCount[targArgs.byarrBuffer[i]])++;
+         tData->iarrByteCount[tData->byarrBuffer[i]]++;
       }
 
       printf("Bytes added to list!\n");
       /* Resets the number of bytes in buffer */
-      targArgs.iBytesInBuffer = 0;
+      tData->iBytesInBuffer = 0;
 
-      printf("COUNTER: Buffer is empty! Signaling reader to start.\n");
-      pthread_mutex_unlock(&targArgs.muMutex);
-      sem_post(&targArgs.semCounterDone);
+
+      /* If bytes were less than max when signal was received, we exit the program here. */
+      if(iReaderComplete == 1){
+         break;
+      } else {
+         printf("COUNTER: Buffer is empty! Signaling reader to start.\n");
+         pthread_mutex_unlock(&tData->muMutex);
+         /* Otherwise we signal back to the reader to continue */
+         sem_post(&tData->semCounterDone);
+      }
    }
 
    /* Prints counter results to the terminal */
-   for(i = 0; i < BYTE_RANGE; i++)
-      printf("%d: %d\n", i, targArgs.iarrByteCount[i]);
+   for(i = 0; i < tData->iBytesInBuffer; i++){
+      printf("%c: %x - ", i, tData->iarrByteCount[i]);
+      if(i % 5 == 0) puts("");
+   }
+
 
    /* Closes thread */
    pthread_exit(NULL);
@@ -179,9 +193,8 @@ void* CounterThread(void* vpArgs) {
 int main(int iArgC, char **arrpszArgV) {
    /* Declaring variables */
    pthread_t thrReader, thrCounter;
-   THREAD_ARGS *targArgs = NULL;
-
-
+   THREAD_ARGS *tData = NULL; /* (t)hread Data */
+   
    printf("Preparing program.\n");
    /* Next two statements are there to verify argv. Whether it exists at all ... */
    if(arrpszArgV[1] == NULL){
@@ -196,64 +209,64 @@ int main(int iArgC, char **arrpszArgV) {
    }
 
    /* Allocating thread data */
-   targArgs = (THREAD_ARGS *) malloc(sizeof(THREAD_ARGS));
-   if(targArgs == NULL){
+   tData = (THREAD_ARGS *) malloc(sizeof(THREAD_ARGS));
+   if(tData == NULL){
       perror("Malloc to thread data failed.");
       exit(1);
    }
 
 
    /* Passes the given filename into thread data struct */
-   targArgs->szFileName = arrpszArgV[1];
+   tData->szFileName = arrpszArgV[1];
 
    /* Initialize data */
-   targArgs->iBytesInBuffer = 0;
+   tData->iBytesInBuffer = 0;
 
    /* Initialize mutex (with default attributes) */
-   pthread_mutex_init(&targArgs->muMutex, NULL);
+   pthread_mutex_init(&tData->muMutex, NULL);
 
    /* Since the semaphores only are going to communicate with each other,
     * and there only is two threads, we set their (counter) to 0 */
-   sem_init(&targArgs->semReaderDone, 0, 0);
+   sem_init(&tData->semReaderDone, 0, 0);
 
    /* NOTE: This one is initialized to zero so that reader can start :) */
-   sem_init(&targArgs->semCounterDone, 0, 0);
+   sem_init(&tData->semCounterDone, 0, 0);
 
    /* Start threads */
    printf("Starting reader thread.\n");
-   if(pthread_create(&thrReader, NULL, ReaderThread, (void *) targArgs) != 0) {
+   if(pthread_create(&thrReader, NULL, ReaderThread, (void *) tData) != 0) {
       perror("Could not create thread A");
-      free(targArgs);
+      free(tData);
       exit(1);
    }
 
    printf("Starting counter thread.\n");
-   if(pthread_create(&thrCounter, NULL, CounterThread, (void *) targArgs) != 0) {
+   if(pthread_create(&thrCounter, NULL, CounterThread, (void *) tData) != 0) {
       perror("Could not create thread B");
-      free(targArgs);
+      free(tData);
       exit(1);
    }
 
    /* Wait for reader thread to finish first */
    if(pthread_join(thrReader, NULL) != 0) {
       perror("Could not join thread A");
-      free(targArgs);
+      free(tData);
       exit(1);
    }
    /* Then for counter thread to finish */
    if(pthread_join(thrCounter, NULL) != 0) {
       perror("Could not join thread B");
-      free(targArgs);
+      free(tData);
       exit(1);
    }
 
    /* Destroy synchronization elements */
-   pthread_mutex_destroy(&targArgs->muMutex);
-   sem_destroy(&targArgs->semReaderDone); 
-   sem_destroy(&targArgs->semCounterDone); 
+   pthread_mutex_destroy(&tData->muMutex);
+   sem_destroy(&tData->semReaderDone); 
+   sem_destroy(&tData->semCounterDone); 
 
    /* Destroy thread data struct */
-   free(targArgs);
+   free(tData);
 
    return 0;
 }
@@ -261,6 +274,8 @@ int main(int iArgC, char **arrpszArgV) {
 /* Local implementations of encryption functions provided.
  * Ive copied them in here both so i modify them for this program(change name etc), 
  * and because i cannot link their files to a header, so i cant reference them :) 
+ *
+ * NOTE: Since encryption has not been a relevant field i'm not going to change these very much.
  *
  * This one was provided in tea.c (file created by ewa)
  * */
