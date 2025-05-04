@@ -56,15 +56,22 @@ int main(void){
 	AddFlight(pflFlights, "1123", 1234, "India");
 
 	bdebug("Test->Adding passengers ...\n");
-	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius", 10);
-	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte", 20);
-	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
+	AddUniquePassenger(pflFlights, "Marius", 26);
+	AddUniquePassenger(pflFlights, "Marte", 20);
+	AddUniquePassenger(pflFlights, "Bengt", 37);
+
+	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius");
+	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte");
+	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt");
+
+	bdebug("Attempt to add passenger not in unique flight list\n");
+	AddPassengerToFlight(pflFlights, "HH11", 50, "NONAME");
 
 	bdebug("Test->Adding duplicate passenger to HH11\n");
-	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
+	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt");
 
 	bdebug("Test->Adding known passenger to another flight\n");
-	AddPassengerToFlight(pflFlights, "1123", 2, "Bengt", 16);
+	AddPassengerToFlight(pflFlights, "1123", 2, "Bengt");
 
 	
 	bdebug("Test-> Printing whole flight list");
@@ -77,14 +84,20 @@ int main(void){
 	/* TODO: MEMORY LEAK HERE (40 bytes in 2 block) WHEN CHANGING, BUT ASSIGNING PASSENGER TO SEAT THAT IS ALREADY TAKEN*/ 
 	bdebug("Test-> Change seat of passenger to one that is taken");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 26);
+	ChangePassengerSeat(pflFlights, "HH11", "Marius", 5);
 
 	/* NOTE: THIS IS FINE */
+	/*
 	bdebug("Test-> Change seat of passenger to one that is out of bounds");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 65);
+	*/
+
 
 	/* Removing flight with passengers*/
+	/*
 	bdebug("Removing flight with passengers");
 	RemoveFlight(pflFlights, "HH11");
+	*/
 
 	//iStatus = StartMenu(pMenu, "Task 3");
     }
@@ -172,16 +185,31 @@ void OptTwo(void *vpflFlightList){
     PrintFlightListSimple(pflFlightList);
     puts("\n\n");
 
-    GetInput(4, (char *[]) {
+    /* Promts for input */
+    GetInput(2, (char *[]) {
 	"Enter a valid FLIGHT ID (4 characters/numbers):",
 	"Enter passenger name:",
-	"Enter seat number:",
-	"Enter passenger age:"
-    }, (char *) "SSII", &pszFlightID, &pszPassengerName, &iSeatNumber, &iPassengerAge);
+    }, (char *) "SS", &pszFlightID, &pszPassengerName);
 
+    /* Checks if passenger already exists, if yes */
+    if(UniquePassengerExists(pflFlightList, pszPassengerName) != 0){
+        /* Otherwise prompt for age and add them */
+	printf("Seems this person is not in any other flights, so we need some more info.\n");
+	GetInput(1, (char *[]) {
+	    "Enter passenger age:"
+	}, (char *) "I", &iPassengerAge);
 
-    /* If not, allow to add passenger on id*/
-    AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName, iPassengerAge);
+	/* Add the passenger if they dont exist */
+	AddUniquePassenger(pflFlightList, pszPassengerName, iPassengerAge);
+    }
+  
+    /* Ask for seat number */
+    GetInput(1, (char *[]) {
+	"Assign a seat (0->64):",
+    }, (char *) "I", &iSeatNumber);
+
+    /* Add passenger to flight */
+    AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName);
 
     free(pszFlightID);
     free(pszPassengerName);

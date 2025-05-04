@@ -4,8 +4,7 @@
 * DESCRIPTION 
 *  This data structure encompasses both a singly linked list (PASSENGER_LIST)
 *  and a doubly linked list (FLIGHT_LIST).
-*
-*  It also handles a partially dynamic array in the FLIGHT_LIST structure alongside
+* It also handles a partially dynamic array in the FLIGHT_LIST structure alongside
 *  the linked list for holding unique passengers. I can hope this does not decrease my
 *  grading as I could not resist making it.
 *
@@ -122,6 +121,16 @@ FLIGHT_LIST *CreateFlightList();
  * */
 int DestroyFlightList(FLIGHT_LIST *ppfl);
 
+/*
+ * Checks the unique passenger list for whether a name exists
+ * Used when taking input
+ * */
+int UniquePassengerExists(FLIGHT_LIST *pfl, char szPassengerName[]);
+
+/*
+ * Adds a unique passenger to the unique passenger list 
+ * */
+int AddUniquePassenger(FLIGHT_LIST *pfl, char szName[], int iAge);
 
 /*
  * Inserts a new flight at the head of the flight list 
@@ -164,8 +173,10 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl);
 /*
  * Adds a passenger to a flight (given its Flight ID). 
  * Makes sure the added passenger only occurs once per flight.
+ * To function the provided name must be matched in the unique passenger list
+ * through the AddUniquePassenger function
  * */
-int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[], int iAge);
+int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[]);
 
 /*
  * Changes the seat of a passenger. 
