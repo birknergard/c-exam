@@ -1,0 +1,7 @@
+0001|00-----0000|04.05 16:16:19|Debug: EWA tool launched starting... (ewa_exam.c:2339)
+0002|00-----0000|04.05 16:16:19|Debug: argv[0] = '../../ewa_exam_v25_i64' (ewa_exam.c:2341)
+0003|00-E6C05900|04.05 16:16:19|Debug: Executable filename is 'ewa_exam_v25_i64' (ewa_exam.c:2479)
+0004|00-E6C05900|04.05 16:16:19|Error: fopen(ewa_exam_v25_i64) failed with 2 (ewa_exam.c:2496)
+0005|00-E6C05900|04.05 16:16:19|Error: Executable run from subfolder '../..' (ewa_exam.c:2505)
+0006|00-E6C05900|04.05 16:16:19|Debug: fopen(../../ewa_exam_v25_i64) success (ewa_exam.c:2518)
+0007|00-E6C05900|04.05 16:16:19|Debug: Verifying integrity of 'ewa_exam_v25_i64' (ewa_exam.c:2528)

@@ -1,11 +1,15 @@
 /*
- * TITLE: Threading task 1
+ * TITLE: Task 4: Threading
  * DESCRIPTION
+ * My solution to task 4 part I and II 
+ * Since it says in the exam description that I am not to create any files,
+ * ive put everything I would have put in a header file in this file.
  * */
 
 /* Part 1 Output
  *
  * */
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +25,7 @@
 /* Redefining to BYTE type for clarity */
 #define BYTE unsigned char
 
-typedef struct {
+typedef struct _THREAD_ARGS {
    /* Synchronization controllers */
    pthread_mutex_t muMutex;
    sem_t semReaderDone;
@@ -35,6 +39,12 @@ typedef struct {
    /* Filename for reader thread */
    char *szFileName;
 } THREAD_ARGS;
+
+/*
+ * Declare these functions, so i can define them below main
+ * */
+int DBJ2_Hash(FILE * fFileDescriptor, int* piHash);
+void TEA_Encrypt(unsigned int *const v,unsigned int *const w, const unsigned int *const k);
 
 /* Renamed from A to Reader thread (since its main job reading from file to the buffer) */
 void* ReaderThread(void* vpArgs) {
@@ -171,6 +181,7 @@ int main(int iArgC, char **arrpszArgV) {
    pthread_t thrReader, thrCounter;
    THREAD_ARGS *targArgs = NULL;
 
+
    printf("Preparing program.\n");
    /* Next two statements are there to verify argv. Whether it exists at all ... */
    if(arrpszArgV[1] == NULL){
@@ -247,6 +258,38 @@ int main(int iArgC, char **arrpszArgV) {
    return 0;
 }
 
+/* Local implementations of encryption functions provided.
+ * Ive copied them in here both so i modify them for this program(change name etc), 
+ * and because i cannot link their files to a header, so i cant reference them :) 
+ *
+ * This one was provided in tea.c (file created by ewa)
+ * */
+void TEA_Encrypt(unsigned int *const v,unsigned int *const w, const unsigned int *const k){
+   register unsigned int y=v[0],z=v[1],sum=0,delta=0x9E3779B9, a=k[0],b=k[1],c=k[2],d=k[3],n=32;
+   while(n-->0){
+      sum += delta;
+      y += ((z<<4)+a) ^ (z+sum) ^ ((z>>5)+b);
+      z += ((y<<4)+c) ^ (y+sum) ^ ((y>>5)+d);
+   }
+   w[0]=y; w[1]=z;
+}
+
+/*
+ * This one was provided in dbj2.c (file created by ewa)
+ * */
+int DBJ2_Hash(FILE * fFileDescriptor, int* piHash) {
+   int hash = 5381; 
+   int iCharacter = 0; 
+   rewind(fFileDescriptor); 
+   do {
+      iCharacter = fgetc(fFileDescriptor); 
+      if (iCharacter == 0 || iCharacter == EOF) break; 
+      hash = ((hash << 5) + hash) + (char)iCharacter; /* hash * 33 + c */
+   } while (iCharacter != EOF); 
+   *piHash = hash; 
+   rewind(fFileDescriptor); 
+   return 0; 
+}
 
 
 
