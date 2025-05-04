@@ -15,7 +15,7 @@ int main(void){
     /* Declare data structures */
     MENU *pMenu = NULL;
     FLIGHT_LIST *pflFlights = NULL;
-    int iStatus;
+    int iStatus = -1;
 
     /* Initialize data structures and verify*/
     pflFlights = CreateFlightList();
@@ -25,6 +25,7 @@ int main(void){
 
     pMenu = CreateMenu((void*) pflFlights);
     if(pMenu == NULL){
+	berror("Error with menu creation.\n");
 	iStatus = ERROR;
     } else {
 	AddOption(pMenu, "Add flight", OptOne);
@@ -47,6 +48,13 @@ int main(void){
 	AddFlight(pflFlights, "1123", 1234, "India");
 	AddFlight(pflFlights, "KEK1", 1234, "Japan");
 
+	/* Removing flight */
+	bdebug("Test->Removing flight\n");
+	RemoveFlight(pflFlights, "1123");
+	/* Adding again */
+	bdebug("Removing flight\n");
+	AddFlight(pflFlights, "1123", 1234, "India");
+
 	bdebug("Test->Adding passengers ...\n");
 	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius", 10);
 	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte", 20);
@@ -62,16 +70,23 @@ int main(void){
 	bdebug("Test-> Printing whole flight list");
 	PrintFlightListSimple(pflFlights);
 
+	/* TODO: MEMORY LEAK HERE (20 bytes in 1 block) WHEN CHANGING PASSENGER*/ 
 	bdebug("Test-> Change seat of passenger");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 3);
 
+	/* TODO: MEMORY LEAK HERE (40 bytes in 2 block) WHEN CHANGING, BUT ASSIGNING PASSENGER TO SEAT THAT IS ALREADY TAKEN*/ 
 	bdebug("Test-> Change seat of passenger to one that is taken");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 26);
 
+	/* NOTE: THIS IS FINE */
 	bdebug("Test-> Change seat of passenger to one that is out of bounds");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 65);
 
-	iStatus = StartMenu(pMenu, "Task 3");
+	/* Removing flight with passengers*/
+	bdebug("Removing flight with passengers");
+	RemoveFlight(pflFlights, "HH11");
+
+	//iStatus = StartMenu(pMenu, "Task 3");
     }
 
     /* Destroy structs */	
@@ -197,9 +212,6 @@ void OptThree(void *vpflFlightList){
 
 /*
  * Option 4: Find flight that matches destination, return item number
- *
- * PS: I have not controlled for destination being unique nor printing every flight
- *     a given destination (TODO:?), so the function will only print the first match
  * */
 void OptFour(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
@@ -322,7 +334,6 @@ void OptSix(void *vpflFlightList){
 
 /*
  * Option 7: Find all flights passenger is reserved for (by name)
- * TODO: Fix, does not print flights for passenger? 
  * */
 void OptSeven(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
@@ -350,7 +361,6 @@ void OptSeven(void *vpflFlightList){
 
 /*
  * Option 8: Find passengers which are booked for more than one flight
- * TODO: Implement here from API...
  * */
 void OptEight(void *vpflFlightList){
     /* No input needed :) */

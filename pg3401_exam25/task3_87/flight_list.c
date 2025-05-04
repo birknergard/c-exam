@@ -21,10 +21,10 @@
 static int _ComparePassengers(PASSENGER *pp1, PASSENGER *pp2){
    if(pp1 != NULL && pp2 != NULL){
    
-      /* If the struct values are equal, return OK */
+	/* If the struct values are equal, return OK */
       if(strcmp(pp1->pszName, pp2->pszName) == 0
       && pp1->iAge == pp2->iAge) return OK;
-      
+
       return 1;
    }
 
@@ -124,8 +124,13 @@ static int _DestroyPassengerNode(PASSENGER_NODE *ppn){
 	/* Verify pointer is allocated */
 	if(ppn == NULL){
 		berror("Cannot free null pointer.\n");	
-		return ERROR;
+		return -1;
 	}
+
+   /* TODO:For debugging */
+   if(ppn->ppPassenger == NULL){
+      berror("Passenger node contains no passenger data.");
+   }
 
 	/* Release connected node if exists, and destroy passenger data */
 	ppn->ppnNext = NULL;
@@ -209,7 +214,7 @@ static int _DestroyPassengerList(PASSENGER_LIST *ppl){
 	/* Errors if attempting to destroy empty list */
 	if(ppl == NULL){
 		berror("Attempted to destroy an empty list.\n");
-		return ERROR;
+		return -1;
 	}
 
    /* If ppnCurrent ends up being NULL it passes the while check, freeing the node
@@ -230,41 +235,77 @@ static int _DestroyPassengerList(PASSENGER_LIST *ppl){
 	ppnCurrent = NULL;
 	ppnTemp = NULL;
 	free(ppl);
-	return OK;
+	return 0;
+}
+
+/* 
+ * Checks (with a passenger) if a seat is taken by either that passenger or someone else
+ * Returns 1 if true, 0 if not
+ * */
+static int _SeatTakenByPassenger(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *ppPassenger){
+   PASSENGER_NODE *ppnTemp = NULL;
+
+   /* Checks if seat is available, returns 1 if not */
+   ppnTemp = ppl->ppnHead;
+   while(ppnTemp != NULL){
+
+      /* Exit condition */
+      if(ppnTemp->iSeatNumber == iSeatNumber){
+         
+         /* Seat is taken by ...(checks who occupies it)*/
+         printf("Seat %d is ", iSeatNumber);
+
+         /* .. someone else */
+         if(_ComparePassengers(ppnTemp->ppPassenger, ppPassenger) == 1) 
+            printf(" taken by someone else!\n");
+
+         /* this passenger */
+         else printf(" already taken by %s.\n", ppPassenger->pszName);
+
+         ppnTemp = NULL; 
+         return 1;
+      }
+      ppnTemp = ppnTemp->ppnNext;
+   }
+
+   ppnTemp = NULL;
+   return 0;
 }
 
 /*
  * Adds a new passenger node in increasing order of seat number (1->MAX)
  * Returns 0 if successful, 1 if intentionally unsuccesful, and -1 if something went wrong.
  * */
-static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp){
-	PASSENGER_NODE *ppnNewPassenger = NULL;		
+static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *ppNew){
+	PASSENGER_NODE *ppnNewNode = NULL;		
 	PASSENGER_NODE *ppnCurrent = NULL;		
 	PASSENGER_NODE *ppnPrev = NULL;		
-	int iCompareResult, iStatus;
+	int iSeatTaken = 0, iCompareResult, iStatus;
 
+   /* Checks if seat is taken by another (or the same) passenger */
+   iSeatTaken = _SeatTakenByPassenger(ppl, iSeatNumber, ppNew);
+   if(iSeatTaken == 1){
+      return 1;
+   }
 
-   ppnNewPassenger = _GetPassengerNode(ppl, pp);
-	/* Checks if passenger with that name already exists in the list */
-   if (ppnNewPassenger != NULL) {
-       if (ppnNewPassenger->iSeatNumber == iSeatNumber) {
-           printf("Passenger already has that seat number.\n");
-       } else {
-           printf("Passenger already exists in the list with a different seat.\n");
+   ppnNewNode = _GetPassengerNode(ppl, ppNew);
+	/* Checks if passenger already exists in the list */
+   if(ppnNewNode != NULL){
+       printf("Passenger already exists in the list\n");
        }
        return 1;
    }
 
 	/* Allocates new passenger */
-	ppnNewPassenger = _CreatePassengerNode(iSeatNumber, pp); 
-	if(ppnNewPassenger == NULL){
+	ppnNewNode = _CreatePassengerNode(iSeatNumber, ppNew); 
+	if(ppnNewNode == NULL){
 		berror("Could not create add new passenger due to allocation error.\n");
 		return -1;
 	}
 
 	/* If list is empty, inserts passenger in first position */
 	if(ppl->iLength == 0 || ppl->ppnHead == NULL){
-		ppl->ppnHead = ppnNewPassenger;	
+		ppl->ppnHead = ppnNewNode;	
 		ppl->iLength++;
 		//ppnNewPassenger = NULL;
 		return 0;
@@ -276,11 +317,11 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 
    /* Checks if node can be inserted at head */
 	if (ppl->ppnHead->iSeatNumber > iSeatNumber) {
-		ppnNewPassenger->ppnNext = ppl->ppnHead;
-		ppl->ppnHead = ppnNewPassenger;
+		ppnNewNode->ppnNext = ppl->ppnHead;
+		ppl->ppnHead = ppnNewNode;
 		ppl->iLength++;
 
-		ppnNewPassenger = NULL;		
+		ppnNewNode = NULL;		
 		ppnCurrent = NULL;		
 		ppnPrev = NULL;		
 		return 0;
@@ -294,11 +335,11 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 		if(iCompareResult > 0){
 			// If higher value, go next, unless next passenger is NULL
 			if(ppnCurrent->ppnNext == NULL){
-				ppnCurrent->ppnNext = ppnNewPassenger;
+				ppnCurrent->ppnNext = ppnNewNode;
 
             /* Increments wrapper list */
 				ppl->iLength++;
-				iStatus = OK;
+				iStatus = 0;
 				break;
 			} 
 
@@ -309,22 +350,21 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 			// Key is smaller, element is insert before the next key 
 		} else {
 			// handle insert
-			ppnPrev->ppnNext = ppnNewPassenger;
-			ppnNewPassenger->ppnNext = ppnCurrent;
+			ppnPrev->ppnNext = ppnNewNode;
+			ppnNewNode->ppnNext = ppnCurrent;
 
          /* Increments wrapper list */
 			ppl->iLength++;
-
-		   iStatus = OK;
 			break;
 		}
 	}
 
    /* Cleanup */
-	ppnNewPassenger = NULL;		
+	ppnNewNode = NULL;		
 	ppnCurrent = NULL;		
 	ppnPrev = NULL;		
-	return iStatus;
+
+	return 0;
 }
 
 /*
@@ -393,57 +433,57 @@ static int _RemovePassenger(PASSENGER_LIST *ppl, PASSENGER *ppPassenger){
 
 }
 
+
 /*
  * Changes the seat of a passenger, given a passenger pointer 
  * Essentially just removes the node and reinserts it again with the new seat number,
  *  allowing add/remove functions do most of the work, with some added input validation
+ *  NOTE: Does check whether new seat is the same as the old one, or if the new one is
+ *  taken by another passenger
  * */
 static int _ChangeSeat(PASSENGER_LIST *ppl, PASSENGER *ppPassenger, int iNewSeat){
    /* Declares/initializes variables */
 	PASSENGER_NODE *ppnPassengerNode = NULL;
-	int iOriginalSeat, iStatus = OK;
+	PASSENGER_NODE *ppnTemp = NULL;
+	int iOriginalSeat, iStatus = 0, iSeatTaken;
 
-   /* Retrieves a pointer to the passengers node */
+   /* Checks if seat is available, returns 1 if not */
+   iSeatTaken = _SeatTakenByPassenger(ppl, iNewSeat, ppPassenger);
+   if(iSeatTaken == 1){
+      return 1;
+   }
+
+   /* We're done with this pointer so we set it to NULL */
+   ppnTemp = NULL;
+
+   /* Retrieves the pointer to the passengers node */
 	ppnPassengerNode = _GetPassengerNode(ppl, ppPassenger);
-
    /* If passenger exists in list, the function executes */
 	if(ppnPassengerNode != NULL){
 
-      /* Checks if user attempted to change to the same seat that was already stored */
-      if(ppnPassengerNode->iSeatNumber == iNewSeat){
-         printf("%s already has that seat.\n", ppPassenger->pszName);
-         ppnPassengerNode = NULL;
-         return ERROR;
-      }
-
       /* Stores the seat of the original node */
-      iOriginalSeat = ppnPassengerNode->iSeatNumber;
       ppnPassengerNode = NULL;
 
       /* Removes the passenger */
-		if((iStatus = _RemovePassenger(ppl, ppPassenger)) == ERROR){
-         _DestroyPassengerNode(ppnPassengerNode);
-         return iStatus;
+		if(_RemovePassenger(ppl, ppPassenger == 1){
+         return 1;
       } 
 
-      /* Adds the passenger again (with new seat number) */
-	   if((iStatus = _AddPassengerNode(ppl, iNewSeat, ppPassenger)) == 1){
 
-         /* If failed (seat was taken, seat was out of range) add passenger back to their original seat */
-         _AddPassengerNode(ppl, iOriginalSeat, ppPassenger);
-         return iStatus;
+      /* Adds the passenger again (with new seat number) */
+	   if(_AddPassengerNode(ppl, iNewSeat, ppPassenger) == 1){
+         return 1;
       } 
 
    /* If not, the function exits and prints and error. */
 	} else {
 		printf("Passenger doesn't exist.\n");	
-      _DestroyPassengerNode(ppnPassengerNode);
-      return ERROR;
+      return 1;
 	}
 
    /* Cleanup */
 	ppnPassengerNode = NULL;
-   return iStatus;
+   return 0;
 }
 
 /*
@@ -585,21 +625,24 @@ static FLIGHT_NODE *_GetFlightByID(FLIGHT_LIST *pfl, char szID[]){
    return pfnCurrent;
 }
 
+	
 /*
  * Destroys a FLIGHT_NODE * allocated by CreateFlight.
  * */
 static int _DestroyFlight(FLIGHT_NODE *pfn){
-   int iPListDestroyed;
+   int iPassengerListDestroyed;
 
    if(pfn == NULL){
-      berror("Flight list is NULL. Cannot destroy unintialized list.");
+      berror("Flight list is NULL. Cannot destroy unintialized list.\n");
       return -1; 
    }
 
-   if((iPListDestroyed = _DestroyPassengerList(pfn->pfdData->pplPassengers)) == 1){
-      berror("Could not destroy passenger list.");
+	iPassengerListDestroyed = _DestroyPassengerList(pfn->pfdData->pplPassengers);
+	
+   if(iPassengerListDestroyed == 1){
+      berror("Could not destroy passenger list.\n");
       return -1;
-   };
+   }
 
    free(pfn->pfdData->pszDestination);
    free(pfn->pfdData);
@@ -607,7 +650,6 @@ static int _DestroyFlight(FLIGHT_NODE *pfn){
 
    return 0;
 }
-
 
 /*
  * Initializes the FLIGHT_LIST structure in the form of a unique pointer.
@@ -975,6 +1017,8 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
       return 1;
    }
 
+   /* Check if seat number is taken */   
+
    /* Attempts to add unique passenger to the list. Does not add if person already exists. */
    if(_AddUniquePassenger(pfl, szName, iAge) == 0){
       bdebug("Added unique passenger.\n");
@@ -1001,25 +1045,29 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
 int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int iNewSeat){
    PASSENGER *ppPassenger = NULL;
    FLIGHT_NODE *pfnFlight = NULL;
-   int iSeatChanged;
+   int iSeatChanged = -1;
 
    if(iNewSeat > MAX_SEATS || iNewSeat < 0){
       printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iNewSeat, MAX_SEATS);
-      return ERROR;
+      return 1;
    }
 
    pfnFlight = _GetFlightByID(pfl, szFlightID);
    if(pfnFlight == NULL){
       printf("No flight exists on that ID.\n");
+      return 1;
    }
 
    ppPassenger = _GetUniquePassenger(pfl, szName);
+   if(ppPassenger == NULL){
+      printf("Could not find any passenger name %s.\n", szName);
+      return 1;
+   }
    /* NOTE: We did not add a new passenger like we did in the last function*/
 
    /* Attempt to change the seat of the passenger with the given name */
    iSeatChanged = _ChangeSeat(pfnFlight->pfdData->pplPassengers, ppPassenger, iNewSeat);
    
-
    ppPassenger = NULL;
    pfnFlight = NULL;
 
