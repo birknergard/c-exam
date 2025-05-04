@@ -35,11 +35,9 @@ int main(void){
 	AddOption(pMenu, "Change passengers seat", OptSix);
 	AddOption(pMenu, "Find which flights passenger is on", OptSeven);
 	AddOption(pMenu, "View passengers multiple booked flights", OptEight);
-	AddOption(pMenu, "unique passengers", Secret);
 
 	AddFlight(pflFlights, "HH11", 1234, "Korea");
 
-	/*
 	bdebug("Test->Adding duplicate flight ...\n");
 	AddFlight(pflFlights, "HH11", 1234, "Korea");
 	AddFlight(pflFlights, "HH11", 3265, "Norway");
@@ -53,14 +51,14 @@ int main(void){
 	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius", 10);
 	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte", 20);
 	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
-	Secret(pflFlights);
 
 	bdebug("Test->Adding duplicate passenger to HH11\n");
 	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt", 16);
 
-	bdebug("Test->TEAdding known passenger to another flight\n");
+	bdebug("Test->Adding known passenger to another flight\n");
 	AddPassengerToFlight(pflFlights, "1123", 2, "Bengt", 16);
 
+	
 	bdebug("Test-> Printing whole flight list");
 	PrintFlightListSimple(pflFlights);
 
@@ -75,7 +73,6 @@ int main(void){
 
 	bdebug("Test-> Change seat of passenger to one that is out of bounds");
 	ChangePassengerSeat(pflFlights, "HH11", "Marius", 65);
-	*/
 
 	iStatus = StartMenu(pMenu, "Task 3");
     }
@@ -91,13 +88,7 @@ int main(void){
     return iStatus;
 }
 
-/* TODO:
- * Step 1: Figure out what variables each option need from the user 
- * Step 2: Handle input from user (Make a function which takes variable inputs, for just int and string)
- * Step 3: Implement function
- * Step 4: Test thoroughly
- * Step 5: Complete documentation for everything
- *
+/* 
  * Option 1: Add a flight to the list
  * */
 void OptOne(void *vpflFlightList){
@@ -167,10 +158,10 @@ void OptTwo(void *vpflFlightList){
     /* Print flight list */
     printf("Here are the current flights in the list\n");
     PrintFlightListSimple(pflFlightList);
-    puts("\n");
+    puts("\n\n");
 
     GetInput(4, (char *[]) {
-	"Enter flight ID (4 characters/numbers):",
+	"Enter a valid FLIGHT ID (4 characters/numbers):",
 	"Enter passenger name:",
 	"Enter seat number:",
 	"Enter passenger age:"
@@ -297,6 +288,10 @@ void OptSix(void *vpflFlightList){
 	return;
     }
 
+    printf("Here are the current flights in the list\n");
+    PrintFlightListSimple(pflFlightList);
+    puts("\n");
+
     /* Get flight id first */
     GetInput(1, (char*[]) {
 	"Enter flight ID:",
@@ -315,7 +310,7 @@ void OptSix(void *vpflFlightList){
 	iChangedSeat = ChangePassengerSeat(pflFlightList, pszFlightID, pszName, iNewSeat);
 	if(iChangedSeat == 0){
 	    printf("Successfully changed seat for %s on flight #%s!\n\n", pszName, pszFlightID);
-	} else printf("Failed to change seat for %s.\n", pszName);
+	} else printf("Failed to change seat for %s.\n\n", pszName);
     }
 
 
@@ -327,7 +322,7 @@ void OptSix(void *vpflFlightList){
 
 /*
  * Option 7: Find all flights passenger is reserved for (by name)
- * TODO: Fix text formatting, debug, make better flight printer that does not print all passengers
+ * TODO: Fix, does not print flights for passenger? 
  * */
 void OptSeven(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
@@ -355,6 +350,7 @@ void OptSeven(void *vpflFlightList){
 
 /*
  * Option 8: Find passengers which are booked for more than one flight
+ * TODO: Implement here from API...
  * */
 void OptEight(void *vpflFlightList){
     //FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
@@ -363,14 +359,3 @@ void OptEight(void *vpflFlightList){
     /* No input needed :) */
     printf("Looking for passengers on multiple flights...\n");
 }
-
-void Secret(void *vfl){
-    FLIGHT_LIST *fl = (FLIGHT_LIST *) vfl;
-    int i;
-    printf("Passengers = %d\n", fl->iUniquePassengers);
-    for(i = 0; i < fl->iUniquePassengers; i++){
-	printf("%s - %d\n", fl->ppUniquePassengers[i]->pszName, fl->ppUniquePassengers[i]->iAge);
-    }
-}
-
-

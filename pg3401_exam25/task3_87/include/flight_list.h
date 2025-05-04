@@ -1,6 +1,6 @@
 /*--------------------------------------------------
- TODO: DOCUMENTATION
-* AUTHOR: BKN
+* TITLE: Flight list
+* AUTHOR: 87
 * DESCRIPTION 
 *  This data structure encompasses both a singly linked list (PASSENGER_LIST)
 *  and a doubly linked list (FLIGHT_LIST).
@@ -14,8 +14,22 @@
 *  high level design decisions. For more fine grained documentation I refer the
 *  evaluator to the source file "flight_list.c".
 *  
+*  All functions in the API refer to the same struct * (created by CreateFlightList)
+*  to prevent confusion. I attempted to only use a pointer reference when i wanted to
+*  change the data but the code ended up being confusing and inconsistent.
+*
+*  It was originally split between two linked list data structures:
+*  1. FLIGHT_LIST (doubly linked)  
+*  2. PASSENGER_LIST (singly linked)
+*
+*  I originally created the program with the two separated, but this ended up in a lot of
+*  confusing encapsulation and increasing difficulty in keeping track of the state.
+*
+*  Im very conscious of how complex this API is internally. I added more moving parts than
+*  was really necessary for this task. I hope that the added complexity displays my
+*  comfort with the programming language this kind of implementation. If I deviated too heavily
+*  from the task and that lead to lost marks I would love to know when the evaluation comes.
 --------------------------------------------------*/
-
 #ifndef ___FLIGHT_LIST_H___ 
 #define ___FLIGHT_LIST_H___  
 
@@ -27,8 +41,8 @@
 /*
  * PREFIX: p - (p)assenger
  * */
-#pragma pack(1)
-typedef struct _PASSENGER{
+#pragma pack (1)
+typedef struct _PASSENGER {
    char *pszName;
    int iAge;
 } PASSENGER;
@@ -41,7 +55,10 @@ typedef struct _PASSENGER{
 typedef struct _PASSENGER_NODE {
     struct _PASSENGER_NODE *ppnNext;
     int iSeatNumber;
-    PASSENGER *ppPassenger; /*Holds a pointer to the data instead of holding the data itself*/
+    /* pp = (p)ointer (p)assenger
+     Holds pointer to the data instead of holding the data itself
+     so that the actual passenger data is stored in FLIGHT_LIST.arrpUniquePassengers */
+   PASSENGER *ppPassenger;
 } PASSENGER_NODE;
 #pragma pack ()
 
@@ -59,23 +76,23 @@ typedef struct _PASSENGER_LIST{
 /*
  * PREFIX: fd - (f)light (d)ata
  * */
+#pragma pack(1)
 typedef struct _FLIGHT_DATA{
    char szID[MAX_ID];
    char *pszDestination;
    int iDepartureTime;
    PASSENGER_LIST *pplPassengers;
 } FLIGHT_DATA;
-
 #pragma pack()
 
 /*
  * PREFIX: fn - (f)light (n)
  * */
 typedef struct _FLIGHT_NODE {
-   struct _FLIGHT *pfnNext;
-   struct _FLIGHT *pfnPrev;
+   struct _FLIGHT_NODE *pfnNext;
+   struct _FLIGHT_NODE *pfnPrev;
    FLIGHT_DATA *pfdData;
-} FLIGHT_NODE ;
+} FLIGHT_NODE;
 
 /* 
  * PREFIX: fl - (f)light (l)ist
@@ -83,7 +100,12 @@ typedef struct _FLIGHT_NODE {
 typedef struct _FLIGHT_LIST {
    FLIGHT_NODE *pfnHead;
    FLIGHT_NODE *pfnTail;
-   PASSENGER **ppUniquePassengers;
+
+   /* ppp = (arr)ay (p)ointer (p)assenger */ 
+   PASSENGER **arrppUniquePassengers;
+   /*Holds every unique PASSENGER * in a dynamic array of pointers,
+    to prevent duplicates and make some tasks easier */
+
    int iUniquePassengers;
    int iLength;
 } FLIGHT_LIST;

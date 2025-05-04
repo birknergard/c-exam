@@ -29,11 +29,17 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	for(i = 0; i < iArgC; i++){
 		/* If type is string */
 		if(szTypeFlags[i] == 'S'){
+
 			/* Prints message */
 			printf("%s\n", szArgMessages[i]);
 
+         /* Loads address to store data */
 			pszArg = va_arg(vaPointers, char**);
+
+         /* Prompts for input */
 			fgets(*pszArg, MAX_INPUT, stdin);
+
+         /* Removes \n from string (with \r just in case) */
 			(*pszArg)[strcspn(*pszArg, "\r\n")] = 0;
 		
 		/* If type is int */
@@ -73,25 +79,32 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	}
 
 	iStatus = OK;
+   /* Ending va_list */
 	va_end(vaPointers);		
-	/* Removing danglers */
+
+	/* Cleanup */
 	pszArg = NULL;
 	pszBuffer = NULL;
 	piArg = NULL;
 	return iStatus;
 } 
 
+/*
+ * Takes a string and attempts to convert it to a positive integer
+ * Returns a positive integer on success, negative on fail
+ * */
 int ParsePositiveInteger(char *psz){
 	int iNum, iLen, i;
 
-	if(strlen(psz) >= MAX_STRING_SIZE){
+	iLen = strlen(psz);
+   /* Check ceiling */
+	if(iLen >= MAX_STRING_SIZE){
 		berror("Input is too large. (MAX: 128 bytes)");
 		return -1;	
 	}
 
 	/* Check each char if digit */
 	i = 0;
-	iLen = strlen(psz);
 	while(i < iLen){
 		if(isdigit(psz[i]) == 0){
 			return -1;	
@@ -99,6 +112,7 @@ int ParsePositiveInteger(char *psz){
 		i++;
 	}
 
+   /* Uses atoi to convert it */
 	iNum = atoi(psz);
 
 	return iNum;

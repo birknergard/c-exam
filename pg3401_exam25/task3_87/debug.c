@@ -7,6 +7,10 @@
 
 #define MAX_BUFFER 4096
 
+/*
+ * Debug function used in various places for easier debugging. Just a printf with extra info.
+ * Made with heavy input from the Debugger task earlier in the year. (Exercises -> Leksjon 7) 
+ * */
 void Debug(unsigned short usErrorType, int iLine, const char szFileName[], const char *szFormat, ...){
 	va_list vaArgs;
 	char szOutput[MAX_BUFFER + 1] = {0};
