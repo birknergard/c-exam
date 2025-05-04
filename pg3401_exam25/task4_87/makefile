@@ -19,7 +19,7 @@ OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 $(OBJDIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-task4_threads.o: $(OBJS)
+task4_threads: $(OBJS)
 	gcc -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
