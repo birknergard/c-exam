@@ -1,3 +1,9 @@
+/*
+ * TITLE: TASK 3 MAIN
+ * AUTHOR: 87
+ * DESCRIPTION
+ *
+ * */
 #include "main.h"
 
 #include <stdio.h>

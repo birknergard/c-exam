@@ -66,7 +66,12 @@ Implementation of the program was really simple. I used the functions i was give
 <br/>
 <br/>
 <br/>
+
+
 ## Task 3
+### TO DO!
+Test/improve
+Complete documentation, for this file and in main.c
 
 ### Initial setup
 For this program I found that i had a lot of data structures prepared. I had already created the menu structure, single linked list and doubly linked list beforehand, as well as some other utility files (debug and util). However, when i put them all togheter (specifically the linked lists) i found that they had conflicting data types. Initially i tried renaming the wrappers but found the same issue with the naming of methods and the NODE struct. I then decided to refactor these two data structures into FLIGHT_LIST and PASSENGER_LIST, since it prevent unnecessary abstraction. 
@@ -80,10 +85,18 @@ With all that being said, the goal was for these data structures to be easily ha
 
 ### Menu implementation
 
-
 ### Other files
 
 ### Creating the final program
+
+<br/>
+<br/>
+<br/>
+
+## Task 4
+### Starting
+
+
 
 ## Sources 
 See "Sources" document on google docs.
