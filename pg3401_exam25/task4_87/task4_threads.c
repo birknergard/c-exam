@@ -159,6 +159,7 @@ void* CounterThread(void* vpArgs) {
       }
 
       /* Counts the number of a byte's occurence in the buffer */
+      /* TODO: Task 2: Replace this with hash and encryption methods */
       for(i = 0; i < tData->iBytesInBuffer; i++){
          /* Indexes by the BYTE (value between 0 and MAX_RANGE) and increments that value */
          tData->iarrByteCount[tData->byarrBuffer[i]]++;
@@ -171,6 +172,7 @@ void* CounterThread(void* vpArgs) {
 
       /* If bytes were less than max when signal was received, we exit the program here. */
       if(iReaderComplete == 1){
+         pthread_mutex_unlock(&tData->muMutex);
          break;
       } else {
          printf("COUNTER: Buffer is empty! Signaling reader to start.\n");
@@ -182,7 +184,7 @@ void* CounterThread(void* vpArgs) {
 
    /* Prints counter results to the terminal */
    for(i = 0; i < BYTE_RANGE; i++){
-      printf("%02x: %d - ", i, tData->iarrByteCount[i]);
+      printf("%c: %d - ", i, tData->iarrByteCount[i]);
       if(i % 5 == 0) puts("");
    }
 
@@ -271,47 +273,5 @@ int main(int iArgC, char **arrpszArgV) {
 
    return 0;
 }
-
-/* Local implementations of encryption functions provided.
- * Ive copied them in here both so i modify them for this program(change name etc), 
- * and because i cannot link their files to a header, so i cant reference them :) 
- *
- * NOTE: Since encryption has not been a relevant field i'm not going to change these very much.
- *
- * This one was provided in tea.c (file created by ewa)
- * */
-void TEA_Encrypt(unsigned int *const v,unsigned int *const w, const unsigned int *const k){
-   register unsigned int y=v[0],z=v[1],sum=0,delta=0x9E3779B9, a=k[0],b=k[1],c=k[2],d=k[3],n=32;
-   while(n-->0){
-      sum += delta;
-      y += ((z<<4)+a) ^ (z+sum) ^ ((z>>5)+b);
-      z += ((y<<4)+c) ^ (y+sum) ^ ((y>>5)+d);
-   }
-   w[0]=y; w[1]=z;
-}
-
-/*
- * This one was provided in dbj2.c (file created by ewa)
- * */
-int DBJ2_Hash(FILE * fFileDescriptor, int* piHash) {
-   int hash = 5381; 
-   int iCharacter = 0; 
-   rewind(fFileDescriptor); 
-   do {
-      iCharacter = fgetc(fFileDescriptor); 
-      if (iCharacter == 0 || iCharacter == EOF) break; 
-      hash = ((hash << 5) + hash) + (char)iCharacter; /* hash * 33 + c */
-   } while (iCharacter != EOF); 
-   *piHash = hash; 
-   rewind(fFileDescriptor); 
-   return 0; 
-}
-
-
-
-
-
-
-
 
 
