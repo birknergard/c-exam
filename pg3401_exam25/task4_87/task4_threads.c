@@ -73,10 +73,7 @@ void* ReaderThread(void* vpArgs) {
    printf("READER: Thread started! File is of size %d \n", iFileSize);
    /* Runs thread execution until break condition */
    while (1) {
-      /* Since data from previos loop has been read, we empty the memory buffer */
-      memset(tData->byarrBuffer, 0, BUFFER_SIZE);
-
-      /* Reads data into */
+      /* Reads one byte at a time from the file into the byte array */
       iBytesRead += fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, 1, fp);
 
       /* Increments bytes shared bytes read counter by the bytes read during this loop */
@@ -84,6 +81,7 @@ void* ReaderThread(void* vpArgs) {
 
       /* Break condition, should break when bytes read is equal to file size!! */
       if(iBytesRead == iFileSize) {
+
          /* When the whole file has been read, signal counter to count remaining data */
          printf("READER: No more bytes to read! Signaling counter to read remaining bytes.\n");
          pthread_mutex_unlock(&tData->muMutex);
@@ -114,6 +112,9 @@ void* ReaderThread(void* vpArgs) {
 
          /* Locks the mutex to prevent data from being changed while running */
          pthread_mutex_lock(&tData->muMutex);
+
+         /* Since data from previos loop has been read, we empty the memory buffer */
+         memset(tData->byarrBuffer, 0, BUFFER_SIZE);
          printf("READER: Signal received! Continuing reader ...\n");
       }
    }
@@ -180,8 +181,8 @@ void* CounterThread(void* vpArgs) {
    }
 
    /* Prints counter results to the terminal */
-   for(i = 0; i < tData->iBytesInBuffer; i++){
-      printf("%c: %x - ", i, tData->iarrByteCount[i]);
+   for(i = 0; i < BYTE_RANGE; i++){
+      printf("%02x: %d - ", i, tData->iarrByteCount[i]);
       if(i % 5 == 0) puts("");
    }
 
