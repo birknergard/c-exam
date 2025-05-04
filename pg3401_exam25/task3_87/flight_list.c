@@ -404,10 +404,13 @@ static int _RemovePassenger(PASSENGER_LIST *ppl, PASSENGER *ppPassenger){
 		while(ppnCurrent != NULL){
 			if(_ComparePassengers(ppnCurrent->ppPassenger, ppPassenger) == 0){
 				ppnTarget = ppnCurrent;
+
+            /* Omits the target */
 				ppnPrev->ppnNext = ppnCurrent->ppnNext;
 
             /* Remove passenger reference */
-            ppnCurrent->ppPassenger = NULL;
+            ppnTarget->ppPassenger = NULL;
+            _DestroyPassengerNode(ppnTarget);
 
             /* Decrement list counter */  
 				ppl->iLength--;
