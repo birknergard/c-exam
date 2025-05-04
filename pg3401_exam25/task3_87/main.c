@@ -277,13 +277,6 @@ void OptSix(void *vpflFlightList){
     
     }
 
-    pszName = (char *) malloc(MAX_INPUT);
-    if(pszName == NULL){
-	free(pszFlightID);
-	pszFlightID = NULL;
-	pflFlightList = NULL;
-	return;
-    }
 
     printf("Here are the current flights in the list\n");
     PrintFlightListSimple(pflFlightList);
@@ -295,10 +288,20 @@ void OptSix(void *vpflFlightList){
     }, (char *) "S", &pszFlightID);
 
     /* Show the list of passengers for reference */
-    if(PrintPassengers(pflFlightList, pszFlightID) != 0){
+    if(PassengerListIsEmpty(pflFlightList, pszFlightID)){
 	printf("Could not continue with action.\n");
     } else {
 	/* Take more input */
+	PrintPassengers(pflFlightList, pszFlightID);
+
+	pszName = (char *) malloc(MAX_INPUT);
+	if(pszName == NULL){
+	    free(pszFlightID);
+	    pszFlightID = NULL;
+	    pflFlightList = NULL;
+	    return;
+	}
+
 	GetInput(2, (char*[]) {
 	    "Enter passenger name:",
 	    "Enter NEW seat number (0->64):"

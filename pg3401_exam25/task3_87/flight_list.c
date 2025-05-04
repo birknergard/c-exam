@@ -246,17 +246,14 @@ static int _AddPassengerNode(PASSENGER_LIST *ppl, int iSeatNumber, PASSENGER *pp
 
    ppnNewPassenger = _GetPassengerNode(ppl, pp);
 	/* Checks if passenger with that name already exists in the list */
-	if(ppnNewPassenger != NULL){
-      if(ppnNewPassenger->iSeatNumber == iSeatNumber){
-         printf("Passenger already has that seat number");
-         return 1;
-      };
-	} else {
-		printf("Person already exists in list.\n");	
-		return 1;
+   if (ppnNewPassenger != NULL) {
+       if (ppnNewPassenger->iSeatNumber == iSeatNumber) {
+           printf("Passenger already has that seat number.\n");
+       } else {
+           printf("Passenger already exists in the list with a different seat.\n");
+       }
+       return 1;
    }
-
-
 
 	/* Allocates new passenger */
 	ppnNewPassenger = _CreatePassengerNode(iSeatNumber, pp); 
@@ -421,7 +418,6 @@ static int _ChangeSeat(PASSENGER_LIST *ppl, PASSENGER *ppPassenger, int iNewSeat
 
       /* Stores the seat of the original node */
       iOriginalSeat = ppnPassengerNode->iSeatNumber;
-      _DestroyPassengerNode(ppnPassengerNode);
       ppnPassengerNode = NULL;
 
       /* Removes the passenger */
@@ -939,6 +935,25 @@ static PASSENGER *_GetUniquePassenger(FLIGHT_LIST *pfl, char szName[]){
 }
 
 /*
+ *  Checks whether a flights passenger list is empty
+ * */
+int PassengerListIsEmpty(FLIGHT_LIST *pfl, char szFlightID[]){
+   FLIGHT_NODE *pfnFlight = NULL;
+
+   /* This function returns null when no match is found. There we can use it this way. */
+   pfnFlight = _GetFlightByID(pfl, szFlightID);
+   if(pfnFlight == NULL){
+      printf("Flight does not exist on id %s", szFlightID);
+      return 1;
+   } 
+   
+   /* Checking both head and tracker for redundancy */
+   if(pfnFlight->pfdData->pplPassengers->ppnHead == NULL && pfnFlight->pfdData->pplPassengers->iLength == 0){
+      return 0;
+   } return 1;
+}
+
+/*
  * Adds a passenger to a flight (given its FlightId(sz)). 
  * Makes sure the passenger * is unique through the _GetUniquePassenger function.
  * */
@@ -960,21 +975,13 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
       return 1;
    }
 
-   /* Retrieves unique passenger of that name from the list. 
-    NOTE: If two passengers have the same name, the last one added will be returned */
-   ppNewPassenger = _GetUniquePassenger(pfl, szName);
-   if(ppNewPassenger == NULL){
-      bdebug("Unique passenger not found.");
-      return 1;
-   }
-
    /* Attempts to add unique passenger to the list. Does not add if person already exists. */
    if(_AddUniquePassenger(pfl, szName, iAge) == 0){
       bdebug("Added unique passenger.\n");
    };
 
-
    /* Attempts to add passenger to list */
+   ppNewPassenger = _GetUniquePassenger(pfl, szName);
    iAddedPassenger = _AddPassengerNode(pfnFlight->pfdData->pplPassengers, iSeatNumber, ppNewPassenger);
    if(iAddedPassenger == 0){
       printf("%s was added to flight!\n", szName);
@@ -1083,14 +1090,14 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
 int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]){
    if(pfl->iLength == 0){
       printf("-> no flights have been added to the list\n");
-      return ERROR;
+      return -1;
    }
 
    FLIGHT_NODE *pfnFlight = NULL;
 
    pfnFlight = _GetFlightByID(pfl, szFlightID);
    if(pfnFlight == NULL){
-      return ERROR;
+      return -1;
    } 
 
    /* Defined in passenger_list.h */

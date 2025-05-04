@@ -137,6 +137,10 @@ int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestinati
 int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
 /*
+ * Checks whether a flight has an empty passenger list
+ * */
+int PassengerListIsEmpty(FLIGHT_LIST *pfl, char szFlightID[]);
+/*
  * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
  * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
  * */
