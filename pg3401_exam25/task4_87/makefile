@@ -29,6 +29,7 @@ $(OBJDIR)/%.o: %.c $(DEPS)
 task4_threads: $(OBJS)
 	gcc -o $@ $^ $(CFLAGS)
 
+
 .PHONY: clean
 clean:
 	rm -f $(OBJDIR)/*.o *~ core $(INCLDIR)/*~
