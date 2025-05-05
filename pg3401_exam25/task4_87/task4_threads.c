@@ -261,18 +261,18 @@ int main(int iArgC, char **arrpszArgV) {
    /* Next two statements are there to verify argv. Whether it exists at all ... */
    if(arrpszArgV[1] == NULL){
       perror("No filename was provided to the program. Requires a file name.");
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    /* Or if its not within required boundaries for program ... */
    if(strlen(arrpszArgV[1]) > MAX_FILENAME || strlen(arrpszArgV[1]) == 1){
       perror("Given filename is not within character limit. (Greater than 1, less than 1028)");
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    if(isTxtFile(arrpszArgV[1]) == 0){
       perror("Given file is not a .txt file.");
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    /* Since source file is passed from user, ensure user can only open .txt files
@@ -283,7 +283,7 @@ int main(int iArgC, char **arrpszArgV) {
    tData = (THREAD_ARGS *) malloc(sizeof(THREAD_ARGS));
    if(tData == NULL){
       perror("Malloc to thread data failed.");
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    /* Passes the given filename into thread data struct */
@@ -311,27 +311,27 @@ int main(int iArgC, char **arrpszArgV) {
    if(pthread_create(&thrReader, NULL, ReaderThread, (void *) tData) != 0) {
       perror("Could not create thread A");
       free(tData);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    printf("Starting counter thread.\n");
    if(pthread_create(&thrCounter, NULL, CounterThread, (void *) tData) != 0) {
       perror("Could not create thread B");
       free(tData);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    /* Wait for reader thread to finish first */
    if(pthread_join(thrReader, NULL) != 0) {
       perror("Could not join thread A");
       free(tData);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    /* Then for counter thread to finish */
    if(pthread_join(thrCounter, NULL) != 0) {
       perror("Could not join thread B");
       free(tData);
-      exit(1);
+      exit(EXIT_FAILURE);
    }
 
    /* Destroy synchronization elements */
