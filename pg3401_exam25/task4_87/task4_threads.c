@@ -55,9 +55,16 @@ typedef struct _THREAD_ARGS {
 } THREAD_ARGS;
 
 /*
- * Declare these functions, so i can define them below main
+ * Encrypts a given byte. Requires an empty *BYTE[8], and a string key 
+ * Returns 1 if it fails, 0 if not. 
  * */
-void TeaEncrypt(BYTE byteToEncrypt, BYTE *pby8Encrypted, BYTE *pby16Key);
+int TeaEncrypt(BYTE byteToEncrypt, BYTE *pby8Encrypted, char szKey[]);
+
+
+/*
+ * Checks a string if it has the .txt file suffix 
+ * returns 1 if true, 0 if false 
+ * */
 int isTxtFile(char *szFileName);
 
 /* Renamed from A to Reader thread (since its main job reading from file to the buffer) */
@@ -238,26 +245,27 @@ void* CounterThread(void* vpArgs) {
                iReaderComplete = 1;
             }
 
-            /* Counts the number of a byte's occurence in the buffer */
-            /*
-            for(i = 0; i < tData->iBytesInBuffer; i++){
-               iarrByteCount[tData->byarrBuffer[i]]++;
-            }
-            */
-
             /* DJB2 HASH */
             for(i = 0; i < tData->iBytesInBuffer; i++){
                /* Stores byte to hash in BYTE variable (by) */
                by = tData->byarrBuffer[i];
+
+               /* Hash the byte value */
                iDJB2Hash = 5381;
                by = ((iDJB2Hash << 5) + iDJB2Hash) + by;
+
+               /* Write hashed byte value to file */
                fwrite(&by, sizeof(BYTE), 1, fpHashed);
             }
 
             /* TEA ENCRYPT */
             for(i = 0; i < tData->iBytesInBuffer; i++){
                by = tData->byarrBuffer[i];
-               TeaEncrypt(by, byEncrypted, (BYTE *) "Hello World");
+
+               /* Pad and encrypt byte (see implementation for details) */
+               TeaEncrypt(by, byEncrypted, "HelloWorldMyLove");
+
+               /* Write encrypted byte to file */
                fwrite(&byEncrypted, sizeof(BYTE) * 8, 1, fpEncrypted);
             }
 
@@ -265,24 +273,17 @@ void* CounterThread(void* vpArgs) {
             /* Resets the number of bytes in buffer */
             tData->iBytesInBuffer = 0;
 
+
+
             /* If bytes were less than max when signal was received, we exit the program here. */
+            pthread_mutex_unlock(&tData->muLock);
             if(iReaderComplete == 1){
-               pthread_mutex_unlock(&tData->muLock);
                break;
             } else {
-               /* Otherwise we signal back to the reader to continue */
-               printf("COUNTER: Buffer is empty! Signaling reader to start.\n");
-               pthread_mutex_unlock(&tData->muLock);
                sem_post(&tData->semCounterDone);
 
             }
          } /*-> COUNTER ENDLOOP */
-
-         /* Prints counter results to the terminal */
-         for(i = 0; i < BYTE_RANGE; i++){
-            printf("%c: %d - ", i, iarrByteCount[i]);
-            if(i % 5 == 0) puts("");
-         }
       } /*-> COUNTER SETUP WAS SUCCESSFUL ENDIF*/ 
 
       /* Closing .hash (if its open) */
@@ -420,21 +421,34 @@ int isTxtFile(char *szFileName){
    } else return 0;
 }
 
-/* Encrypts a given byte. Requires an empty *BYTE[8], and a BYTE[16] key */
-void TeaEncrypt(BYTE byToEncrypt, BYTE *pby8Encrypted, BYTE *pby16Key){
+int TeaEncrypt(BYTE byToEncrypt, BYTE *pby8Encrypted, char *szKey){
    /* 64 bits */
-   BYTE byPadded[8];
+   BYTE byarrPadded[8];
+   BYTE byarr16Key[16];
+
+   /* Check that key string is 16 characters exactly */
+   if(strlen(szKey) != 16){
+      perror("Key needs to be exactly 16 characters");
+      return 1;
+   }
+
+   /* To avoid null terminator, copy over everything but the key into the byte arrayay */
+   memset(byarr16Key, 0, 16);
+   memcpy(byarr16Key, szKey, 16);
 
    /* Create padded byte. Is always 0x07 since always just need to pad one byte */
-   memset(byPadded, 0x07, sizeof(BYTE) * 8);
-   byPadded[0] = byToEncrypt;
+   memset(byarrPadded, 0x07, sizeof(BYTE) * 8);
+   byarrPadded[0] = byToEncrypt;
 
-   /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
-   unsigned int uiY = byPadded[0]; 
-   unsigned int uiZ = byPadded[3];
+   /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) 
+    * I wasn't sure if I should include register keyword on the variable declarations, since
+    * we havent learned it during the course. I figure since the provided script does so
+    * I shall do it as well. */
+   register unsigned int uiY = byarrPadded[0]; 
+   register unsigned int uiZ = byarrPadded[3];
 
-   unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
-   unsigned int uiKeyOne = pby16Key[3], uiKeyTwo = pby16Key[7], uiKeyThree = pby16Key[11], uiKeyFour = pby16Key[15];
+   register unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
+   register unsigned int uiKeyOne = byarr16Key[3], uiKeyTwo = byarr16Key[7], uiKeyThree = byarr16Key[11], uiKeyFour = byarr16Key[15];
    int n;
 
    /* Encrypts padded byte */
@@ -448,5 +462,7 @@ void TeaEncrypt(BYTE byToEncrypt, BYTE *pby8Encrypted, BYTE *pby16Key){
    *pby8Encrypted = uiY;
    pby8Encrypted += 4 /* Incrementing pointer by 4 bytes (moving pointer to other half) */;
    *pby8Encrypted = uiZ; 
+
+   return 0;
 }
 
