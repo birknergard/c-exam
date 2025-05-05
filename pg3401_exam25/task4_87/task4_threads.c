@@ -5,6 +5,15 @@
  * Since it says in the exam description that I am not to create any files,
  * ive put everything I would have put in a header file in this file.
  *
+ * I was not sure if the threads were meant to read/count from the buffer simultaneously.
+ * I could nbot glean from neither the task description nor the original file whether this was
+ * the intent, so i created it so that it essentially works sequentially. The counter thread and
+ * the reader thread will never read the memory buffer simultaneously. While one of them works, the other
+ * waits, until the signal is given, where they will switch.
+ *
+ * I also was not sure whether we were supposed to transform the decryption code in any way. I attempted to do
+ * so and tested the result but I would love to know in the feedback.
+ *
  * */
 
 /* Part 1 Output
@@ -23,7 +32,7 @@
 #define BYTE_RANGE 256
 #define MAX_FILENAME 1028
 
-/* Redefining to BYTE type for clarity */
+/* Defining BYTE types for clarity */
 #define BYTE unsigned char
 
 typedef struct _THREAD_ARGS {
@@ -48,8 +57,7 @@ typedef struct _THREAD_ARGS {
 /*
  * Declare these functions, so i can define them below main
  * */
-int DBJ2_Hash(FILE * fFileDescriptor, int* piHash);
-void TEA_Encrypt(unsigned int *const v,unsigned int *const w, const unsigned int *const k);
+void TeaEncrypt(BYTE byteToEncrypt, BYTE *pby8Encrypted, BYTE *pby16Key);
 int isTxtFile(char *szFileName);
 
 /* Renamed from A to Reader thread (since its main job reading from file to the buffer) */
@@ -57,7 +65,6 @@ void* ReaderThread(void* vpArgs) {
    /* Declare variables */
    int iTotalBytesRead = 0;
    int iFileSize = 0;
-   int iReadByteFromFile = 0;
 
    /* Declare file pointer */
    FILE *fpSource = NULL;
@@ -97,30 +104,17 @@ void* ReaderThread(void* vpArgs) {
 
       /* If counter didn't fail, start reader */
       if(tData->iCounterSetupFailed != 1) {
-         printf("READER: Counter was successful! Starting main reader process.");
+         printf("READER: Counter was successful! Starting main reader process.\n");
 
          /* Runs thread execution until break condition */
          while (1) {
 
             /* Reads one byte at a time from the file into the byte array TODO: Make it read more bytes at a time,
              * this is ineffiecient */
-            iReadByteFromFile = fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, 1, fpSource);
-
-            if(iReadByteFromFile == 0 && iTotalBytesRead != iFileSize){
-               /* If whole file wasn't read, we print an error first */
-               perror("Read of file failed!");
-
-               /* Signaling other thread
-                * NOTE: Since terminated early, buffer count will the less than max, terminating the counter thread */
-               sem_post(&tData->semReaderDone);
-               pthread_mutex_unlock(&tData->muLock);
-               break;
-
-            /* Alternatively, if no errors occured, add a byte to the local tracker */
-            } else iTotalBytesRead += 1;
+            tData->iBytesInBuffer += fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, BUFFER_SIZE, fpSource);
 
             /* Increments bytes shared bytes read counter by the bytes read during this loop */
-            tData->iBytesInBuffer++;
+            iTotalBytesRead += tData->iBytesInBuffer;
 
             /* Break condition, should break when bytes read is equal to file size!! */
             if(iTotalBytesRead == iFileSize) {
@@ -160,7 +154,7 @@ void* ReaderThread(void* vpArgs) {
             }
          } /*-> READER ENDLOOP*/
       } else {
-         printf("READER: Counter setup failed! Exiting ...");
+         printf("READER: Counter setup failed! Exiting ...\n");
       } /*-> COUNTER SETUP SUCCESFUL ENDIF*/
       pthread_mutex_unlock(&tData->muLock);
 
@@ -177,10 +171,11 @@ void* ReaderThread(void* vpArgs) {
 /* Renamed from B to Counter (since its main job is counting each byte in the buffer) */
 void* CounterThread(void* vpArgs) {
    /* Declaring variables */
-   int i, iReaderComplete = 0;
+   int i;
+   int iReaderComplete = 0;
    int iarrByteCount[BYTE_RANGE];
-   int iDJB2Hash;
-   BYTE by;
+   int iDJB2Hash; 
+   BYTE by,  byEncrypted[8];
 
    /* Casting void * to argument struct * */
    THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
@@ -244,23 +239,26 @@ void* CounterThread(void* vpArgs) {
             }
 
             /* Counts the number of a byte's occurence in the buffer */
-            /* TODO: Task 2: Replace this with hash and encryption methods */
+            /*
             for(i = 0; i < tData->iBytesInBuffer; i++){
                iarrByteCount[tData->byarrBuffer[i]]++;
             }
+            */
 
-            /* TODO: DJB2 HASH */
-            for(i = 0; i < iData->iBytesInByffer; i++){
+            /* DJB2 HASH */
+            for(i = 0; i < tData->iBytesInBuffer; i++){
                /* Stores byte to hash in BYTE variable (by) */
                by = tData->byarrBuffer[i];
                iDJB2Hash = 5381;
                by = ((iDJB2Hash << 5) + iDJB2Hash) + by;
-               fwrite(by, sizeof(BYTE), 1, fpHashed);
+               fwrite(&by, sizeof(BYTE), 1, fpHashed);
             }
 
-            /* TODO: TEA ENCRYPT */
-            for(i = 0; i < iData->iBytesInByffer; i++){
-
+            /* TEA ENCRYPT */
+            for(i = 0; i < tData->iBytesInBuffer; i++){
+               by = tData->byarrBuffer[i];
+               TeaEncrypt(by, byEncrypted, (BYTE *) "Hello World");
+               fwrite(&byEncrypted, sizeof(BYTE) * 8, 1, fpEncrypted);
             }
 
 
@@ -422,4 +420,33 @@ int isTxtFile(char *szFileName){
    } else return 0;
 }
 
+/* Encrypts a given byte. Requires an empty *BYTE[8], and a BYTE[16] key */
+void TeaEncrypt(BYTE byToEncrypt, BYTE *pby8Encrypted, BYTE *pby16Key){
+   /* 64 bits */
+   BYTE byPadded[8];
+
+   /* Create padded byte. Is always 0x07 since always just need to pad one byte */
+   memset(byPadded, 0x07, sizeof(BYTE) * 8);
+   byPadded[0] = byToEncrypt;
+
+   /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
+   unsigned int uiY = byPadded[0]; 
+   unsigned int uiZ = byPadded[3];
+
+   unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
+   unsigned int uiKeyOne = pby16Key[3], uiKeyTwo = pby16Key[7], uiKeyThree = pby16Key[11], uiKeyFour = pby16Key[15];
+   int n;
+
+   /* Encrypts padded byte */
+   for(n = 0; n < 32; n++){
+      uiSum += uiDelta;
+      uiY += (uiZ << 4) + uiKeyOne ^ uiZ + uiSum ^ ( uiZ >> 5) + uiKeyTwo;
+      uiZ += (uiY << 4) + uiKeyThree ^ uiY + uiSum ^ ( uiY >> 5) + uiKeyFour;
+   }
+
+   /* Defines the encrypted bytes, split by each 4 bytes in the padded byte */
+   *pby8Encrypted = uiY;
+   pby8Encrypted += 4 /* Incrementing pointer by 4 bytes (moving pointer to other half) */;
+   *pby8Encrypted = uiZ; 
+}
 

@@ -1,2 +1,1 @@
-aaa
-bbb
+Hello world my beloved.
