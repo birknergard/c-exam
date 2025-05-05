@@ -179,6 +179,8 @@ void* CounterThread(void* vpArgs) {
    /* Declaring variables */
    int i, iReaderComplete = 0;
    int iarrByteCount[BYTE_RANGE];
+   int iDJB2Hash;
+   BYTE by;
 
    /* Casting void * to argument struct * */
    THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
@@ -244,14 +246,22 @@ void* CounterThread(void* vpArgs) {
             /* Counts the number of a byte's occurence in the buffer */
             /* TODO: Task 2: Replace this with hash and encryption methods */
             for(i = 0; i < tData->iBytesInBuffer; i++){
-               /* Indexes by the BYTE (value between 0 and MAX_RANGE) and increments that value */
                iarrByteCount[tData->byarrBuffer[i]]++;
             }
 
             /* TODO: DJB2 HASH */
-            
+            for(i = 0; i < iData->iBytesInByffer; i++){
+               /* Stores byte to hash in BYTE variable (by) */
+               by = tData->byarrBuffer[i];
+               iDJB2Hash = 5381;
+               by = ((iDJB2Hash << 5) + iDJB2Hash) + by;
+               fwrite(by, sizeof(BYTE), 1, fpHashed);
+            }
 
             /* TODO: TEA ENCRYPT */
+            for(i = 0; i < iData->iBytesInByffer; i++){
+
+            }
 
 
             /* Resets the number of bytes in buffer */
