@@ -50,8 +50,9 @@ void TEA_Encrypt(unsigned int *const v,unsigned int *const w, const unsigned int
 void* ReaderThread(void* vpArgs) {
    /* Declare variables */
    FILE *fp = NULL;
-   int iBytesRead = 0;
+   int iTotalBytesRead = 0;
    int iFileSize = 0;
+   int iReadByteFromFile = 0;
 
    /* Typecast pointer to arg struct (THEAD_ARGS) 
     * and store a reference for each field locally for more clean code */
@@ -71,16 +72,30 @@ void* ReaderThread(void* vpArgs) {
    }
 
    printf("READER: Thread started! File is of size %d \n", iFileSize);
+
    /* Runs thread execution until break condition */
    while (1) {
+
       /* Reads one byte at a time from the file into the byte array */
-      iBytesRead += fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, 1, fp);
+      iReadByteFromFile = fread((tData->byarrBuffer + tData->iBytesInBuffer), 1, 1, fp);
+      if(iReadByteFromFile == 0 && iTotalBytesRead != iFileSize){
+         /* If whole file wasn't read, we print and error first */
+         perror("Read of file failed!");
+         pthread_mutex_unlock(&tData->muMutex);
+
+         /* Signaling other thread
+          * NOTE: Since terminated early, buffer count will the less than max, terminating the counter thread */
+         sem_post(&tData->semReaderDone);
+         break;
+
+      /* Alternatively, if no errors occured, add a byte to the local tracker */
+      } else iTotalBytesRead += 1;
 
       /* Increments bytes shared bytes read counter by the bytes read during this loop */
       tData->iBytesInBuffer++;
 
       /* Break condition, should break when bytes read is equal to file size!! */
-      if(iBytesRead == iFileSize) {
+      if(iTotalBytesRead == iFileSize) {
 
          /* When the whole file has been read, signal counter to count remaining data */
          printf("READER: No more bytes to read! Signaling counter to read remaining bytes.\n");
@@ -142,14 +157,13 @@ void* CounterThread(void* vpArgs) {
    /* Runs counter infinitely, or until break condition */
    while (1) {
 
-      /* waits for signal from reader */
+      /* Waits for available semaphore from reader */
       printf("COUNTER: Waiting for signal from reader ...\n");
       sem_wait(&tData->semReaderDone);
 
       /* Locks mutex while counter is running to prevent unexpected changes */
       pthread_mutex_lock(&tData->muMutex);
       printf("COUNTER: Signal received! Starting counter...\n");
-      /* "Signals" the reader to start again */
 
       /* If bytes in buffer is less than max, that means the reader didnt have more
        * data to read. therefore we can break the loop when this happens. */
