@@ -38,7 +38,7 @@ int main(int iArgC, char **arrpszArgV){
    char *szServerID = NULL;  
 
    /* Client Info */
-   long int lliClientIP;
+   long int liClientIP;
    char szClientID[MAX_ID];
 
    /* Declaring iterator */
@@ -160,37 +160,57 @@ int main(int iArgC, char **arrpszArgV){
       ewaClientHelo.acHardZero[0] == '\0' /* Zero terminator */
    ){
       /* Initialize local variables for client data */
-      lliClientIP = 0;
+      liClientIP = 0;
       memset(szClientID, 0, MAX_ID);
 
       /* Attempt to parse username into local buffer */
       for(i = 0; i < 42; i++){
          if(ewaClientHelo.acFormattedString[i] == '.'){
-            /* ID needs to be at least two characters, 
-             * max 42 (given that we need address as well, which is minimum 8 (1.1.1 */
             szClientID[i] = '\0';
             break;
          }
          szClientID[i] = ewaClientHelo.acFormattedString[i]; 
       }
 
-      /* Verify username */
+      /* ID needs to be at least two characters, 
+       * max 42 (given that we need address as well, which is minimum 8 (1.1.1 */
       if(strlen(szClientID) >= 2 && strlen(szClientID) < 40){
 
          /* Check if remaining string is long enough to hold an IP address with . separators */
          if((strlen(ewaClientHelo.acFormattedString) - strlen(szClientID)) > 7){
-            /* Parsing IP address. Starts calculating from where the id string ended. */
-            lliClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + i);
+            /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)*/
+            liClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + (i + 1));
 
             /* Verify IP address */
-            if(lliClientIP > 0){
+            if(liClientIP > 0){
 
                /* If all of these conditions are met, set serreply to OK */
                strcpy(ewaServerHelo.acStatusCode, "250" /*EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK*/);
-            } else strcpy(ewaServerHelo.acStatusCode, errno);
-         } else strcpy(ewaServerHelo.acStatusCode, errno);
-      } else strcpy(ewaServerHelo.acStatusCode, errno);
-   } /*-> HEADER VERIFIED FALSE*/ else strcpy(ewaServerHelo.acStatusCode, "501");
+               CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "%d HELLO %d", htonl(liClientIP), szClientID);
+               printf("SUCCESS: CLIENT ID=%s, IP=%X", szClientID, liClientIP);
+
+            } else {
+               perror("INVALID IP ADDRESS: ");
+               printf("%ld\n", liClientIP);
+               strcpy(ewaServerHelo.acStatusCode, "501");
+            } 
+
+         } else {
+            perror("NO IP ADDRESS PROVIDED\n");
+            strcpy(ewaServerHelo.acStatusCode, "501");
+         }
+
+      } else {
+         perror("CLIENT ID IS INVALID\n");
+         strcpy(ewaServerHelo.acStatusCode, "501");
+      } 
+
+   } else {
+      perror("INVALID REQUEST STRUCTURE\n");
+      CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "BAD REQUEST");
+      strcpy(ewaServerHelo.acStatusCode, "501");
+   } 
+
 
    strcpy(ewaServerHelo.acHardZero, "\0");
 
@@ -206,51 +226,74 @@ int main(int iArgC, char **arrpszArgV){
    return 1;
 }
 
+/* NOTE: I didn't test sending a raw ip address string at first so i thought this was required,
+ * leaving it in anyway */
 long int ParseIPv4Address(char szIp[]){
    /* Declaring variables */
-   long int liIPv4 = 4;
+   long int liIPv4 = 0;
    int iCurrentBitField = 4;
-   int i, j;
+   int i, j = 0;
+   unsigned char cDigit;
    char szBuffer[4];
    memset(szBuffer, 0, 4);
 
+   printf("Address parser: Input IP string=%s\n", szIp);
    /* Calculates the raw ; i++ip address using shifting. 
     * Loops 15 times since 255.255.255.255 is 15 characters */ 
    for(i = 0; i < 15; i++){
-      if(isdigit(szIp[i])){
+      cDigit = szIp[i];
+
+      /* Checking for valid characters */
+      if(isdigit(cDigit) != 0 || cDigit == '.' || cDigit == '\0'){
 
          /* If string ends, or we have calculated all the bit fields, exit */
-         if(szIp[i] == '\0' || iCurrentBitField == 0){
+         if(iCurrentBitField == 0){
             break;
          }
          
          /* Completes calculation when it hits a period or zero terminator */
-         if(szIp[i] == '.'){
+         if(cDigit == '.' || cDigit == '\0'){
             /* zero terminate before attempting int conversion */
             szBuffer[3] = '\0';
+            printf("String segment for bit field %d=%s\n", iCurrentBitField, szBuffer);
             switch(iCurrentBitField){
                case 4:
-                  liIPv4 += atoi(szBuffer) << 24; 
+                  liIPv4 += (atoi(szBuffer) << 24); 
+                  memset(szBuffer, 0, 4);
+                  i++; /* Skip the next character (.). Repeated for all bit fields except the last */
                   break;
+
                case 3:
-                  liIPv4 += atoi(szBuffer) << 16; 
+                  liIPv4 += (atoi(szBuffer) << 16); 
+                  memset(szBuffer, 0, 4);
+                  i++; /* Here */
                   break;
+
                case 2:
-                  liIPv4 += atoi(szBuffer) << 8; 
+                  liIPv4 += (atoi(szBuffer) << 8); 
+                  memset(szBuffer, 0, 4);
+                  i++; /* Here */
                   break;
+
                case 1:
                   liIPv4 += atoi(szBuffer); 
-                  return liIPv4;
+                  memset(szBuffer, 0, 4);
+                  /* No skip here so we dont potentially exceed null terminator on next loop */
+                  break;
             }
 
             /* Checks next bit field */
             iCurrentBitField--;
+            /* Resets the other iterator */
+            j = 0;
          }
-         /* Stores digit in buffer */
-         szBuffer[j] = szIp[i];
+
+         /* If no break conditions are hit, keep copying the string into the buffer */
+         szBuffer[j] = cDigit;
          j++;
-      } else return -1;
+      } 
    }
+
    return liIPv4;
 }
 
