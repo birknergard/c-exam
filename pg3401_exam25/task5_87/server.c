@@ -4,12 +4,16 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include <netinet/in.h> /* For INADDR_ANY */
 #include <time.h> /* For Time */
 
 #define MAX_ID 128
+
+int CreateAcFormattedString(void *vpStruct, int size, const char szFormat[], ...);
+int CreateHeader(void *vpStruct, size_t iDataSize);
 
 int main(int iArgC, char **arrpszArgV){
 	/* Declaring variables */
@@ -25,7 +29,7 @@ int main(int iArgC, char **arrpszArgV){
    int iAddress = 0x7F000001;
 
    char *szServerID = NULL;  
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT *ewaServerAccept = NULL;
+
 
    /* Parse program arguments */
    if(strcmp(arrpszArgV[1], "-port") == 0){
@@ -63,45 +67,6 @@ int main(int iArgC, char **arrpszArgV){
 		return -1;
 	} 
 
-   /* Server Accept protocol */
-   ewaServerAccept = (struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT *) 
-      malloc(sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-
-   if(ewaServerAccept == NULL){
-      close(sockServerDescriptor); sockServerDescriptor = -1;
-      close(sockClientDescriptor); sockClientDescriptor = -1;
-
-      return -1;
-   }
-   memset(ewaServerAccept, 0, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-   strncpy(ewaServerAccept->stHead.acMagicNumber, "EWP", 3);
-
-   char szDataSizeBfr[5];
-   snprintf(szDataSizeBfr, 5, "%02d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-	szDataSizeBfr[4] = 'X';
-
-   strncpy(ewaServerAccept->stHead.acDataSize, szDataSizeBfr, 4);
-   strncpy(ewaServerAccept->stHead.acDelimeter, "|", 1);
-   
-   /* Input protocol body values */
-   strcpy(ewaServerAccept->acStatusCode, "220");
-   strcpy(ewaServerAccept->acHardSpace, " ");
-   snprintf(ewaServerAccept->acFormattedString, 51, "%X %s %s - %s:%s:%s, %ld",
-            iAddress,
-            "SMTP", 
-            szServerID, 
-            "06",
-            "05",
-            "2025",
-            (int)time(NULL)
-   );
-	ewaServerAccept->acFormattedString[strcspn(ewaServerAccept->acFormattedString, "\0")] = 0;
-   strncpy(ewaServerAccept->acHardZero, "\0", 1);
-
-   printf("RAW protocol: %s\n", (char *) ewaServerAccept);
-   printf("Size of RAW serveraccept protocol: %d\n", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-   printf("Size of serveraccept protocol: %d\n", sizeof(*ewaServerAccept));
-
 	/* Make server listen for input */
 	iListened =	listen(sockServerDescriptor, 1);
 	if(iListened < 0){
@@ -128,22 +93,33 @@ int main(int iArgC, char **arrpszArgV){
       return -1;
    }
    
-   /* REQUEST STRUCTS (Prefixed with ewa) */
+   /* Create header for ServerAccept protocol */
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerAccept = {0};
+   CreateHeader(&ewaServerAccept.stHead, sizeof(ewaServerAccept));
+   
+   /* Input protocol body values */
+   strcpy(ewaServerAccept.acStatusCode, "220");
+   strcpy(ewaServerAccept.acHardSpace, " ");
+   CreateAcFormattedString(&ewaServerAccept.acFormattedString, 51, "%X %s %s - %s:%s:%s, %ld",
+            iAddress,
+            "SMTP", 
+            szServerID, 
+            "06",
+            "05",
+            "2025",
+            (int)time(NULL)
+   );
+   strcpy(ewaServerAccept.acHardZero, "\0");
 
+   printf("Size of RAW serveraccept protocol: %d\n", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+   printf("Size of serveraccept protocol: %d\n", sizeof(ewaServerAccept));
 
 	/* Send SERVER ACCEPT message */
-	if(send(
-		sockClientDescriptor,
-      ewaServerAccept,
-      64,
-      0
-	) < 0){
+	if(send(sockClientDescriptor, &ewaServerAccept, sizeof(ewaServerAccept), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
 	} 
 
-   free(ewaServerAccept);
-
-	/* Take request */
+	/* Take request from client */
    /*
 	if((iReceived = recv(sockClientDescriptor, //, MAX_PACKET, 0)) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
@@ -159,5 +135,46 @@ int main(int iArgC, char **arrpszArgV){
    exit(1);
    return 1;
 }
+
+int CreateHeader(void *vpStruct, size_t iDataSize){
+   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER *stHead = (struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER *) vpStruct; 
+
+   /* Add magic number */
+   strncpy(stHead->acMagicNumber, "EWP", 3);
+
+   /* Need snprint for converting sizeof data to ascii with padding, but it adds a null terminator to the string when used.
+    * Therefore we first create the string we want and then copy everything but the null terminator to the struct 
+    * We also pad it to four bytes of ASCII by adding leading zeroes */
+
+   char szDataSizeBfr[5];
+   snprintf(szDataSizeBfr, 5, "%04d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+   /* Removing NULL terminator to be sure */
+	/*szDataSizeBfr[4] = 'X'; */
+
+   strncpy(stHead->acDataSize, szDataSizeBfr, 4);
+   strncpy(stHead->acDelimeter, "|", 1);
+}
+
+/* Create a formatted string without zero terminator. Takes an anonymous struct and required size of string.
+ * As well as format. Works similar to printf */
+int CreateAcFormattedString(void *vpStruct, int size, const char szFormat[], ...){
+	va_list vaArgs;
+   /* Max string is 128 */
+	char szOutput[128] = {0};
+
+	va_start(vaArgs, szFormat);
+   /* Adding extra space for zero terminator so it doesn't truncate any data */
+	vsnprintf(szOutput, size + 1, szFormat, vaArgs);
+	va_end(vaArgs);
+
+   /* Removes zero terminator for good measure */
+	szOutput[strcspn(szOutput, "\0")] = 0;
+
+   /* Copies the given size argument x bytes of the created string into the struct. */
+   strncpy(vpStruct, szOutput, size);
+
+   return 0;
+}
+
 
 
