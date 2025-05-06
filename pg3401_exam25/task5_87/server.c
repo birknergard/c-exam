@@ -24,31 +24,46 @@
 
 int main(int iArgC, char **arrpszArgV){
 	/* Declaring server variables */
-	int iBinded, iListened;
 	int sockServer = -1;
-   int sockClient = -1;
 	struct sockaddr_in saServerAddress = {0};
-	struct sockaddr_in saClientAddress = {0};
 	int iNewAddressLength;
-   int iPortNumber = -1;
 
-   /* Sets address to localhost */
+   char szServerID[MAX_ID] = {0};  
+   int iPortNumber = -1;
    long int iServerAddress = 0x7F000001;
 
-   char *szServerID = NULL;  
+   /* Server status */
+   int iListened;
 
    /* Client Info */
-   long int liClientIP;
-   char szClientIP[IP_STRING_SIZE];
+   int sockClient = -1;
+	struct sockaddr_in saClientAddress = {0};
    char szClientID[MAX_ID];
+   char szClientIP[IP_STRING_SIZE]; /* IP as string */
+   long int liClientIP; /* IP as raw number */
 
-   /* Declaring iterator */
-   int i;
+   /* Declaring iterators */
+   int i, j;
+
+   /* Verification variables */
+   int iBytesToRead;
+   int iIllegalCharFound;
+   int iValidFileExtension;
    
+   /* Other */
+   char szFileExtension[4];
+
+
    /* Reply structs */
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerAccept = {0};
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERHELO ewaServerHelo = {0};
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY ewaServerReply = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerACCEPT = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERHELO ewaServerHELO = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY ewaServerREPLY = {0};
+
+   /* Request structs (from client) */
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO ewaClientHELO = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_MAILFROM ewaClientMAILFROM = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_RCPTTO ewaClientRCPTTO = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientDATA = {0};
 
    if(iArgC == 0){
       perror("Server attempted start without arguments.");
@@ -62,7 +77,8 @@ int main(int iArgC, char **arrpszArgV){
 
    /* If flag was given, store id from arguments */
    if(strcmp(arrpszArgV[3], "-id") == 0){
-      szServerID = arrpszArgV[4];
+      strncpy(szServerID, arrpszArgV[4], MAX_ID);
+      szServerID[strlen(szServerID)] = '\0';
    }
 
 	/* Open network socket (TCP/IP Protocol), as a stream */
@@ -83,11 +99,7 @@ int main(int iArgC, char **arrpszArgV){
 	saServerAddress.sin_addr.s_addr = htonl(iServerAddress);  
 			
 	/* Bind socket to address */
-	if((iBinded = bind(
-		sockServer,
-		(struct sockaddr *) &saServerAddress,
-		sizeof(saServerAddress)
-	)) < 0){
+	if(bind(sockServer, (struct sockaddr *) &saServerAddress, sizeof(saServerAddress)) < 0){
 		printf("Error with bind() - errcode %d", errno);
 		close(sockServer); sockServer = -1;
 		return -1;
@@ -116,10 +128,7 @@ int main(int iArgC, char **arrpszArgV){
       return -1;
    }
    
-   /* Create header for ServerAccept protocol */
-   
-   /* Input protocol body values */
-   CreateServerReply(&ewaServerAccept, "220", "%X %s %s - %s:%s:%s, %ld",
+   CreateServerReply(&ewaServerACCEPT, "220", "%X %s %s - %s:%s:%s, %ld",
       iServerAddress,
       "SMTP", 
       szServerID, 
@@ -129,127 +138,164 @@ int main(int iArgC, char **arrpszArgV){
       (int)time(NULL)
    );
 
-	/* Send SERVER ACCEPT */
-	if(send(sockClient, &ewaServerAccept, sizeof(ewaServerAccept), 0) < 0){
+	/* ACCEPT: Send response */
+	if(send(sockClient, &ewaServerACCEPT, sizeof(ewaServerACCEPT), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
 
-   /* Create struct for holding reply */
-   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO ewaClientHelo = {0};
-
-   /* Receive data */
-	if(recv(sockClient, &ewaClientHelo, sizeof(ewaClientHelo), 0) < 0){
+   /* HELO: Receive request */
+	if(recv(sockClient, &ewaClientHELO, sizeof(ewaClientHELO), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
+   printf("HELO REQ: %s\n", (char *) &ewaClientHELO);
 
-   /* Verify data received is correct */
-   if(
-      /* Verify header */
-      VerifyHeader(&ewaClientHelo.stHead, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO)) == 0 &&
+   /* HELO: Validate client request */
+   /* CHECKLIST:
+    *  1. VALID HEADER:
+    *    -> MAGIC = 'EWA'
+    *    -> DELIMITER = '|'
+    *    -> BYTE COUNT:
+    *       -> IS 4 DIGIT NUMBER (WITH 0 PADDING)
+    *       -> TODO:
+    *
+    *  2. REQUEST BODY:
+    *    -> COMMAND = "HELO"*/
+   if((iBytesToRead = VerifyHeader(ewaClientHELO.stHead, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO))) > 0) {
+      if( /* Verify body structure */
+         (strncmp(ewaClientHELO.acCommand, "HELO", 4) == 0) &&
+         ewaClientHELO.acHardSpace[0] == 0x20 && /* ASCI value for space */
+         sizeof(ewaClientHELO.acFormattedString) <= 50 && sizeof(ewaClientHELO.acFormattedString) > 0 &&
+         ewaClientHELO.acHardZero[0] == '\0' /* Zero terminator */
+      ){
+         /* Initialize local variables for client data */
+         liClientIP = 0;
+         memset(szClientID, 0, MAX_ID);
 
-      /* Verifying body structure */
-      (strncmp(ewaClientHelo.acCommand, "HELO", 4) == 0) &&
-      ewaClientHelo.acHardSpace[0] == 0x20 && /* ASCI value for space */
-      sizeof(ewaClientHelo.acFormattedString) <= 50 && sizeof(ewaClientHelo.acFormattedString) > 0 &&
-      ewaClientHelo.acHardZero[0] == '\0' /* Zero terminator */
-   ){
-      /* Initialize local variables for client data */
-      liClientIP = 0;
-      memset(szClientID, 0, MAX_ID);
-
-      /* Attempt to parse username into local buffer */
-      for(i = 0; i < 42; i++){
-         if(ewaClientHelo.acFormattedString[i] == '.'){
-            szClientID[i] = '\0';
-            break;
-         }
-         szClientID[i] = ewaClientHelo.acFormattedString[i]; 
-      }
-
-      /* ID needs to be at least two characters, 
-       * max 42 (given that we need address as well, which is minimum 8 (1.1.1 */
-      if(strlen(szClientID) >= 2 && strlen(szClientID) < 40){
-
-         /* Check if remaining string is long enough to hold an IP address with . separators */
-         if((strlen(ewaClientHelo.acFormattedString) - strlen(szClientID)) > 7){
-
-            /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
-             * Keeping it both as a string and in raw format */
-            liClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + (i + 1));
-            GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
-
-            /* Verify IP address */
-            if(liClientIP > 0){
-               /* If all of these conditions are met, set reply to OK */
-               CreateServerReply(&ewaServerHelo,EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK, "%d HELLO %s", liClientIP, szClientID);
-
-            } else {
-               perror("INVALID IP ADDRESS: ");
-               printf("%ld\n", liClientIP);
-               strcpy(ewaServerHelo.acStatusCode, "501");
-            } 
-
-         } else {
-            perror("NO IP ADDRESS PROVIDED\n");
-            strcpy(ewaServerHelo.acStatusCode, "501");
+         /* Attempt to parse username into local buffer */
+         for(i = 0; i < iBytesToRead - 8; i++){
+            if(ewaClientHELO.acFormattedString[i] == '.'){
+               szClientID[i] = '\0';
+               break;
+            }
+            szClientID[i] = ewaClientHELO.acFormattedString[i]; 
          }
 
-      } else {
-         perror("CLIENT ID IS INVALID\n");
-         strcpy(ewaServerHelo.acStatusCode, "501");
-      } 
+         /* ID needs to be at least two characters, 
+          * max 42 (given that we need address as well, which is minimum 8 (1.1.1.1 */
+         if(strlen(szClientID) >= 2 && strlen(szClientID) < 40){
 
-   } else {
-      perror("INVALID REQUEST STRUCTURE\n");
-      CreateServerReply(&ewaServerHelo,"501", "BAD REQUEST");
-   } 
+            /* Check if remaining string is long enough to hold an IP address with . separators */
+            if((strlen(ewaClientHELO.acFormattedString) - strlen(szClientID)) > 7){
 
-   strcpy(ewaServerHelo.acHardZero, "\0");
-   printf("%s\n", (char *) &ewaServerHelo);
+               /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
+                * Keeping it both as a string and in raw format */
+               liClientIP = ParseIPv4Address(ewaClientHELO.acFormattedString + (i + 1));
+               GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
 
-   /* Send SERVERHELO to client */
-	if(send(sockClient, &ewaServerHelo, 64, 0) < 0){
+               /* Verify IP address */
+               if(liClientIP > 0){
+                  /* If all of these conditions are met, set reply to OK */
+                  CreateServerReply(
+                     &ewaServerHELO, EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK,
+                     "%d HELLO %s", liClientIP, szClientID
+                  );
+               } else CreateServerReply(&ewaServerHELO,"501", "INVALID IP ADDRESS");
+            } else CreateServerReply(&ewaServerHELO,"501", "NO IP ADDRESS PROVIDED");
+         } else CreateServerReply(&ewaServerHELO,"501", "CLIENT ID IS INVALID");
+      } else CreateServerReply(&ewaServerHELO,"501", "BAD REQUEST");
+   } else CreateServerReply(&ewaServerHELO,"501", "NO IP ADDRESS PROVIDED");
+
+
+   /* HELO: Send response to client */
+	if(send(sockClient, &ewaServerHELO, 64, 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
 
    /* RECEIVE "MAIL_FROM PROTOCOL" */
-   struct EWA_EXAM25_TASK5_PROTOCOL_MAILFROM ewaClientMailFrom = { 0 };
-	if(recv(sockClient, &ewaClientMailFrom, sizeof(ewaClientMailFrom), 0) < 0){
+	if(recv(sockClient, &ewaClientMAILFROM, sizeof(ewaClientMAILFROM), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
+   printf("MAIL FROM REQ: %s\n", (char *) &ewaClientMAILFROM);
+   /* TODO: Validation of MAIL FROM TO*/
    
-   /* Reusing this struct for replies from now on */
-   CreateServerReply(&ewaServerReply, "250", "MAIL FROM RECEIVED");
 
-   /* REPLY TO "MAIL_FROM" */
-	if(send(sockClient, &ewaServerReply, sizeof(ewaServerReply), 0) < 0){
+   /* MAIL FROM: Sending response to client */
+   CreateServerReply(&ewaServerREPLY, "250", "MAIL FROM RECEIVED");
+	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
 
-   struct EWA_EXAM25_TASK5_PROTOCOL_RCPTTO ewaClientRCPTTO = { 0 };
+
+   /* RCPT TO: Receive request */
 	if(recv(sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
+   printf("RCPT TO REQ: %s\n", (char *) &ewaClientRCPTTO);
+   /* TODO: Validation of RCPT TO*/
 
-   /* Resetting reply structure and creating a new message */
-   CreateServerReply(&ewaServerReply, "250", "RCPT TO RECEIVED");
-	if(send(sockClient, &ewaServerReply, sizeof(ewaServerReply), 0) < 0){
+   /* RCPT TO: Send response */
+   CreateServerReply(&ewaServerREPLY, "250", "RCPT TO RECEIVED");
+	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
 
+   /* DATA: Receive request */
+	if(recv(sockClient, &ewaClientDATA, sizeof(ewaClientDATA), 0) < 0){
+		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+		return -1;
+	} 
+   printf("DATA REQ: %s\n", (char *) &ewaClientDATA);
 
+   /* DATA: Verifying filename is valid.
+    *    MUST HAVE: .eml
+    *    MUST NOT HAVE: '/' or '\0' */
+   /* Initializing control variables */
+   iBytesToRead = 0;
+   iIllegalCharFound = 0;
+   iValidFileExtension = 0;
 
+   if((iBytesToRead = VerifyHeader(ewaClientDATA.stHead, 64)) != -1){
+      printf("HEADER->OK;");
+      char szFileExtension[4];
+      /* First, check for illegal symbols (Only reading as many bytes as was verified in head) */
+      for(i = 0; i < 50; i++){
+         if(ewaClientDATA.acFormattedString[i] == '/'){
+            iIllegalCharFound = 1;
+            break;
+         }
+         /* Checks if there are null terminators anywhere but at acHardZero */
+         if(ewaClientDATA.acFormattedString[i] == '\0' &&
+            &ewaClientDATA.acFormattedString[i] != &ewaClientDATA.acHardZero[0]){
+            iIllegalCharFound = 1;
+            break;
 
+         }
+      }
+      if(iIllegalCharFound != 1){
+         CreateServerReply(
+            &ewaServerREPLY,
+            EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_READY,
+            "DATA COMMAND ACCEPTED. WAITING FOR FILE."
+         );
+      } else CreateServerReply(&ewaServerREPLY, "501", "CONTAINS ILLEGAL SYMBOLS");
+   } else CreateServerReply(&ewaServerREPLY, "501", "DENIED HEADER/BYTE SIZE"); 
+
+   /* DATA: Send reply  */
+	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+	}  
 
    CloseSockets(&sockServer, &sockClient);
    exit(1);
@@ -303,41 +349,49 @@ int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... 
 
    return 0;
 }
-void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
-   char szBuffer[5];
-   char szConverted[IP_STRING_SIZE];
-   signed char byShiftedAddr;
-   int i, j;
 
-   memset(szConverted, 0, IP_STRING_SIZE);
-   memset(szDestination, 0, IP_STRING_SIZE);
+/*
+ * Performs a bunch of checks on the header structure to see if matches protocol
+ * Returns the data size from header if accepted, otherwise returns -1.
+ * */
+int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit){
+   /* Check data size */
+   int iSize = 0, i;
+   char szBuf[4] = {0};
 
-   /* Shitfing right, increasing by 8 for each byte up to 24, leaving 32 bits.*/
-   j = 0;
-   for(i = 0; i <= 24; i += 8){
-      byShiftedAddr = liIPv4Address >> i;
+   /* Check structure */ 
+   printf("Checking MAGIC;");
+   if(strncmp(stHead.acMagicNumber, "EWP", 3) != 0) return -1;
+   printf("Checking DELIMETER;");
+   if(stHead.acDelimeter[0] != '|') return -1;
 
-      /* Resetting buffer */
-      memset(szBuffer, 0, 5);
-
-      j++;
-
-      /* Creating string */
-      if(j != 4)
-         snprintf(szBuffer, 5, "%d.", byShiftedAddr);
-      else 
-         snprintf(szBuffer, 5, "%d", byShiftedAddr);
-
-      /*printf("%d -> IPSTRING=%s\n", j, szBuffer);*/
-
-      /* Concatenating buffer to converted string */
-      strncat(szConverted, szBuffer, 4);  
+   /* Checks if every byte is a digit. Only reads ever reads 4 digits. */
+   printf("Checking IF DIGITS;");
+   for(i = 0; i < 4; i++){
+      if(isdigit(stHead.acDataSize[i]) == 0){
+         return -1;
+      }
    }
+   /* Ensures only 4 digits are read */
+   strncpy(szBuf, stHead.acDataSize, 4);
 
-   strncpy(szDestination, (char*) szConverted, IP_STRING_SIZE);
-   szDestination[strlen(szDestination)] = '\0';
+   /* Convert to int */
+   iSize = atoi(szBuf);
+
+   /* Check if value exceeds max (given as argument) */
+   printf("Checking WITHIN BYTELIMIT;");
+   if(iSize > iByteLimit) return -1;
+
+   printf("-- OK\n");
+   /* All checks passed */
+   return iSize;
 }
 
+void CloseSockets(int *sockServer, int *sockClient){
+	/* Close the sockets, then assign a secure exit value */
+	close(*sockServer); *sockServer = -1;
+   close(*sockClient); *sockClient = -1;
+}
 
 /* NOTE: I didn't test sending a raw ip address string at first so i thought this was required,
  * leaving it in anyway. I figure it's a nice way to verify the address is correct anyway. */
@@ -407,57 +461,39 @@ long int ParseIPv4Address(char szIp[]){
    return liIPv4;
 }
 
-/*
- * Checks if request size given in header is a correct int, and if its the right value
- * */
-int ParseRequestSize(char szSize[], int iMax){
-   int iSize = 0, i;
-   unsigned char cChar;
+void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
+   char szBuffer[5];
+   char szConverted[IP_STRING_SIZE];
+   signed char byShiftedAddr;
+   int i, j;
 
-   if(strlen(szSize) != 4) return 1;
+   memset(szConverted, 0, IP_STRING_SIZE);
+   memset(szDestination, 0, IP_STRING_SIZE);
 
-   for(i = 4; i > 0; i--){
-      cChar = szSize[i];
-      if(isdigit(szSize[i])){
-         /* Numbers start at spot 48 in the ascii table (0), 
-          * so we directly convert to int by subtracting 48 */
-         cChar = cChar - 48;
+   /* Shitfing right, increasing by 8 for each byte up to 24, leaving 32 bits.*/
+   j = 0;
+   for(i = 0; i <= 24; i += 8){
+      byShiftedAddr = liIPv4Address >> i;
 
-         /* There has to be data in the request, so size cant be 0 */
-         if(cChar == 0) return -1;
+      /* Resetting buffer */
+      memset(szBuffer, 0, 5);
 
-         /* if single digit, add as normal */
-         if(i == 4) {
-            iSize += cChar;
-         /* Else, add a zero first */
-         } else {
-            /* Add the 10^n where n is the index, (lower index is higher n) */
-            iSize += pow((double) 10, (double) atoi(szSize));
-         }
-      } else return -1;
+      j++;
+
+      /* Creating string */
+      if(j != 4)
+         snprintf(szBuffer, 5, "%d.", byShiftedAddr);
+      else 
+         snprintf(szBuffer, 5, "%d", byShiftedAddr);
+
+      /*printf("%d -> IPSTRING=%s\n", j, szBuffer);*/
+
+      /* Concatenating buffer to converted string */
+      strncat(szConverted, szBuffer, 4);  
    }
 
-   /* Check if value exceeds max */
-   if(iSize > iMax) return -1;
-
-   return iSize;
+   strncpy(szDestination, (char*) szConverted, IP_STRING_SIZE);
+   szDestination[strlen(szDestination)] = '\0';
 }
 
-int VerifyHeader(void *vpstHead, int iRequestSizeMax){
-   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER ewaHead = *(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER *) vpstHead;
-   /* Makes sure request size is correct */ 
-   if(
-      strncmp(ewaHead.acMagicNumber, "EWP", 3) == 0 &&
-      ParseRequestSize(ewaHead.acDataSize, iRequestSizeMax) > 0 &&
-      ewaHead.acDelimeter[0] == '|'
-   ) return 0;
-   else return 1;
-
-}
-
-void CloseSockets(int *sockServer, int *sockClient){
-	/* Close the sockets, then assign a secure exit value */
-	close(*sockServer); *sockServer = -1;
-   close(*sockClient); *sockClient = -1;
-}
 

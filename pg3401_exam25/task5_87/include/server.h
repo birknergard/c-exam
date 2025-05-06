@@ -2,6 +2,7 @@
 #define TASK5_SERVER_H
 
 #define MAX_ID 64
+#define MAX_READ 4096
 #define IP_STRING_SIZE 16
 #define SERVER_MSGSIZE 51
 
@@ -15,10 +16,7 @@ int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... 
 /*
  * Verifies that the header is correct
  * */
-int VerifyHeader(void *vpstHead, int iRequestSizeMax);
-
-/* uses below function */
-int ParseRequestSize(char szSize[], int iMax);
+int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit);
 
 /*
  * Calculates the raw ip address number as a long int. Returns -1 if invalid string 
