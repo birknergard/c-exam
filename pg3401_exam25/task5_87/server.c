@@ -76,9 +76,9 @@ int main(int iArgC, char **arrpszArgV){
    memset(ewaServerAccept, 0, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
    strncpy(ewaServerAccept->stHead.acMagicNumber, "EWP", 3);
 
-   char szDataSizeBfr[4];
-   sprintf(szDataSizeBfr, "%d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-	szDataSizeBfr[strcspn(szDataSizeBfr, "\0")] = 0;
+   char szDataSizeBfr[5];
+   snprintf(szDataSizeBfr, 5, "%02d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+	szDataSizeBfr[4] = 'X';
 
    strncpy(ewaServerAccept->stHead.acDataSize, szDataSizeBfr, 4);
    strncpy(ewaServerAccept->stHead.acDelimeter, "|", 1);
@@ -98,6 +98,7 @@ int main(int iArgC, char **arrpszArgV){
 	ewaServerAccept->acFormattedString[strcspn(ewaServerAccept->acFormattedString, "\0")] = 0;
    strncpy(ewaServerAccept->acHardZero, "\0", 1);
 
+   printf("RAW protocol: %s\n", (char *) ewaServerAccept);
    printf("Size of RAW serveraccept protocol: %d\n", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
    printf("Size of serveraccept protocol: %d\n", sizeof(*ewaServerAccept));
 
