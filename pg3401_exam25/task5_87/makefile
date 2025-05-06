@@ -6,11 +6,14 @@ CFLAGS = -O2
 CFLAGS += -I $(INCLDIR)
 CFLAGS += -lpthread
 CFLAGS += -std=c89
+
+# Adds the math.h library
+CFLAGS += -lm
 #CFLAGS += -Wall
 
 OBJDIR = obj
 
-_DEPS = ewpdef.h
+_DEPS = ewpdef.h server.h
 DEPS = $(patsubst %,$(INCLDIR)/%,$(_DEPS))
 
 _OBJS = server.o
