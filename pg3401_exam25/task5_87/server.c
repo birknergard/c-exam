@@ -1,65 +1,56 @@
+#include "ewpdef.h"
+
 #include <sys/socket.h>
-#include <netinet/in.h> /* For INADDR_ANY */
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-int main(void){
-	int iErrorDetected;
-	iErrorDetected = RunServer(); 
-	
-	if(iErrorDetected != 0){
-		berror("Server crashed - errcode: %d", iErrorDetected);			
-		return 1;
-	}
+#include <netinet/in.h> /* For INADDR_ANY */
+#include <time.h> /* For Time */
 
-	return 0;
-}
+#define MAX_ID 128
 
-int RunServer(){
+int main(int iArgC, char **arrpszArgV){
 	/* Declaring variables */
-	int iBinded, iListened, i;
+	int iBinded, iListened;
+	int sockServerDescriptor = -1;
+   int sockClientDescriptor = -1;
+	struct sockaddr_in saServerAddress = {0};
+	struct sockaddr_in saClientAddress = {0};
 
-	int iThreads;
-	int **ppiThreadTracker;
-	pthread_t *pThreads;
-	THREAD_DATA **pptDataContainers;
-	sem_t semThreadReady;
-
-	int sockServerDescriptor;
-	struct sockaddr_in saServerAddress;
-	struct sockaddr_in saNewClientAddress;
-
+	int iReceived, iSent;
 	int iNewAddressLength;
-	int iRequests, iRequestLimit;
+   int iPortNumber;
+   int iAddress = 0x7F000001;
 
-	/* Setting number of threads */
-	iThreads = 3;
-	iRequestLimit = 4;
+   char *szServerID = NULL;  
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT *ewaServerAccept = NULL;
 
-	/* Set pointers to NULL */
-	ppiThreadTracker = NULL;
-	pThreads = NULL;
-	pptDataContainers = NULL;
+   /* Parse program arguments */
+   if(strcmp(arrpszArgV[1], "-port") == 0){
+      iPortNumber = atoi(arrpszArgV[2]);
+   }
+   if(strcmp(arrpszArgV[3], "-id") == 0){
+      szServerID = arrpszArgV[4];
+   }
 
 	/* Open network socket (TCP/IP Protocol), as a stream */
 	sockServerDescriptor = socket(AF_INET, SOCK_STREAM, 0);
 	if(sockServerDescriptor < 0){
-		berror("Error when opening socket - errcode: %d", errno);
+		printf("Error when opening socket - errcode: %d", errno);
 		close(sockServerDescriptor);
-		return ERROR;
+		return -1;
 	}
 
 	/* Sets address type */
 	saServerAddress.sin_family = AF_INET; 
 
 	/* Converts port (int) into TCP/IP byte order (from little to big endian) */
-	saServerAddress.sin_port = htons(PORT); 
+	saServerAddress.sin_port = htons(iPortNumber); 
 
 	/* The server listens to any available network interfaces (wifi etc.) on the computer */
-	saServerAddress.sin_addr.s_addr = INADDR_ANY;  
+	saServerAddress.sin_addr.s_addr = htonl(iAddress);  
 			
 	/* Bind socket to address */
 	if((iBinded = bind(
@@ -67,243 +58,105 @@ int RunServer(){
 		(struct sockaddr *) &saServerAddress,
 		sizeof(saServerAddress)
 	)) < 0){
-		berror("Error with bind() - errcode %d", errno);
+		printf("Error with bind() - errcode %d", errno);
 		close(sockServerDescriptor); sockServerDescriptor = -1;
-		return ERROR;
+		return -1;
 	} 
 
+   /* Server Accept protocol */
+   ewaServerAccept = (struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT *) 
+      malloc(sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+
+   if(ewaServerAccept == NULL){
+      close(sockServerDescriptor); sockServerDescriptor = -1;
+      close(sockClientDescriptor); sockClientDescriptor = -1;
+
+      return -1;
+   }
+   memset(ewaServerAccept, 0, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+   strncpy(ewaServerAccept->stHead.acMagicNumber, "EWP", 3);
+
+   char szDataSizeBfr[4];
+   sprintf(szDataSizeBfr, "%d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+	szDataSizeBfr[strcspn(szDataSizeBfr, "\0")] = 0;
+
+   strncpy(ewaServerAccept->stHead.acDataSize, szDataSizeBfr, 4);
+   strncpy(ewaServerAccept->stHead.acDelimeter, "|", 1);
+   
+   /* Input protocol body values */
+   strcpy(ewaServerAccept->acStatusCode, "220");
+   strcpy(ewaServerAccept->acHardSpace, " ");
+   snprintf(ewaServerAccept->acFormattedString, 51, "%X %s %s - %s:%s:%s, %ld",
+            iAddress,
+            "SMTP", 
+            szServerID, 
+            "06",
+            "05",
+            "2025",
+            (int)time(NULL)
+   );
+	ewaServerAccept->acFormattedString[strcspn(ewaServerAccept->acFormattedString, "\0")] = 0;
+   strncpy(ewaServerAccept->acHardZero, "\0", 1);
+
+   printf("Size of RAW serveraccept protocol: %d\n", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
+   printf("Size of serveraccept protocol: %d\n", sizeof(*ewaServerAccept));
 
 	/* Make server listen for input */
-	iListened =	listen(sockServerDescriptor, 5);
+	iListened =	listen(sockServerDescriptor, 1);
 	if(iListened < 0){
-		berror("Listen failed - errcode: %d", errno);
+		printf("Listen failed - errcode: %d", errno);
 		close(sockServerDescriptor); sockServerDescriptor = -1;
-		return ERROR;
+		return -1;
 	}
 
-	pptDataContainers = (THREAD_DATA **) malloc(sizeof(THREAD_DATA *) * iThreads);
-	if(pptDataContainers == NULL) {
-		berror("An error occurred while allocating to thread containers.\n");
-		close(sockServerDescriptor); sockServerDescriptor = -1;
-		free(pThreads);
-		return ERROR;
-	}
-	memset(pptDataContainers, 0, sizeof(THREAD_DATA *) * iThreads);
+	/* Initialize client socket address to zero */
+	sockClientDescriptor = 0;
+	iNewAddressLength = sizeof(saClientAddress); 
 
-	/* Initialize thread tracker */
-	ppiThreadTracker = (int **) malloc(sizeof(int *) * iThreads);
-	if(ppiThreadTracker == NULL){
-		berror("An error occured while allocating the thread tracker\n");
-		close(sockServerDescriptor); sockServerDescriptor = -1;
-		return ERROR;
-	}
-	
-	memset(ppiThreadTracker, 0, sizeof(int) * iThreads);
-	for(i = 0; i < iThreads; i++){
-		ppiThreadTracker[i] = (int *) malloc(sizeof(int) * 2);
-		if(ppiThreadTracker[i] == NULL){
-			berror("An error occured whiile allocating the thread tracker\n");
-			close(sockServerDescriptor); sockServerDescriptor = -1;
-			free(pptDataContainers);
+	/* Handle connection */
+   sockClientDescriptor = accept(
+      sockServerDescriptor,
+      (struct sockaddr *) &saClientAddress,
+      (socklen_t *) &iNewAddressLength
+   );
+   if(sockClientDescriptor < 0){
+      printf("%s: Accept failed! errcode - %d\n", szServerID, errno);
+      close(sockServerDescriptor); sockServerDescriptor = -1;
+      close(sockClientDescriptor); sockClientDescriptor = -1;
 
-			/* Free however many pointers were allocated before error */
-			for(; i >= 0; i--){
-				free(ppiThreadTracker[i]);
-			}
-			free(ppiThreadTracker);
-			return ERROR;
-		}
-		memset(ppiThreadTracker[i], 0, sizeof(int) * 2);
-	}
+      return -1;
+   }
+   
+   /* REQUEST STRUCTS (Prefixed with ewa) */
 
-	/* Allocate memory for threads */
-	pThreads = (pthread_t *) malloc(sizeof(pthread_t) * iThreads);
-	if(pThreads == NULL){
-		close(sockServerDescriptor); sockServerDescriptor = -1;
-		berror("An error occurred while allocating to thread containers.\n");
-		return ERROR;
-	}
 
-	/* Initialize semaphores and mutexes */
-	sem_init(&semThreadReady, 0, iThreads);
+	/* Send SERVER ACCEPT message */
+	if(send(
+		sockClientDescriptor,
+      ewaServerAccept,
+      64,
+      0
+	) < 0){
+		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+	} 
 
-	/* Initializing request count tracker */
-	iRequests = 0;
+   free(ewaServerAccept);
 
-	puts("STARTING SERVER\n");
-	/* Handle requests */
-	while(1){
-		/* Add request */
-		iRequests++;
-		if(iRequests > iRequestLimit){
-			puts("MAX REQUESTS EXCEEDED, EXITING ... \n");
-			break;
-		}
+	/* Take request */
+   /*
+	if((iReceived = recv(sockClientDescriptor, //, MAX_PACKET, 0)) < 0){
+		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+		return -1;
+	} 
+   */
 
-		saNewClientAddress = (struct sockaddr_in) {0}; 
-		iNewAddressLength = sizeof(saNewClientAddress); 
-
-		/* Wait for empty thread */ 
-		sem_wait(&semThreadReady);
-
-		/* Thread is confirmed open above, now to find it*/
-		i = -1;
-		for(;;){
-			/* Loops until it finds an open thread */
-			i++;
-			if(i == iThreads) i = 0;
-
-			/* when open thread flag is found, start new thread */
-			if(ppiThreadTracker[i][1] == 0){
-
-				/* Closes thread if it has been active */
-				if(ppiThreadTracker[i][0] == 1){
-					pthread_join(pThreads[i], NULL);
-				}
-
-				//bdebug("FREEING OLD DATA FOR TD-%d if exists ...\n", i);
-				if(pptDataContainers[i] != NULL){
-					free(pptDataContainers[i]);
-				}
-
-				//bdebug("ALLOCATING NEW MEMORY FOR FOR TD-%d DATA ...\n", i);
-				pptDataContainers[i] = (THREAD_DATA *) malloc(sizeof(THREAD_DATA));
-				if(pptDataContainers[i] == NULL){
-					berror("An error occurred while allocating to thread container.\n");
-					close(sockServerDescriptor); sockServerDescriptor = -1;
-					break;
-				}
-				memset(pptDataContainers[i], 0, sizeof(THREAD_DATA));
-
-				puts("WAITING FOR CLIENT ... \n");
-				pptDataContainers[i]->sockClientDescriptor = accept(
-					sockServerDescriptor,
-					(struct sockaddr *) &saNewClientAddress,
-					(socklen_t *) &iNewAddressLength
-				);
-				puts("ACCEPTED CONNECTION\n");
-
-				/* if connection was unsuccessful */ 
-				if(pptDataContainers[i]->sockClientDescriptor < 0){
-					berror("An error occured when accepting connection - errcode: %d\n", errno);
-					break;
-				}
-
-				/* Stores a reference to our thread tracker... */
-				pptDataContainers[i]->ppiThreadTracker = ppiThreadTracker; 
-
-				/* and semaphores */
-				pptDataContainers[i]->semThreadReady = &semThreadReady;
-
-				/*bdebug("Open thread found (id:%d)! Running thread ... \n", i);*/
-				pptDataContainers[i]->iThreadID = i;
-
-				/* Mark thread has having activated */
-				pptDataContainers[i]->ppiThreadTracker[i][0] = 1;
-
-				/* Mark thread as running */
-				pptDataContainers[i]->ppiThreadTracker[i][1] = 1;
-
-				/* Create thread */
-				pthread_create(&pThreads[i], NULL, HandleRequest, (void*) pptDataContainers[i]);
-				break;	
-			}
-		}
-	}
-
-	/* Close any open threads */
-	puts("WAITING FOR REMAINING THREADS ...")
-	for(i = 0; i < iThreads; i++){
-		if(ppiThreadTracker[i][0] == 1 || ppiThreadTracker[i][1] == 1)
-			pthread_join(pThreads[i], NULL);
-	}
-	free(pThreads);
-	pThreads = NULL;
-
-	/* Destroy thread resources */
-	sem_destroy(&semThreadReady);
-	for(i = 0; i < iThreads; i++){
-		if(pptDataContainers[i] != NULL){
-			close(pptDataContainers[i]->sockClientDescriptor); pptDataContainers[i]->sockClientDescriptor = -1;
-			free(pptDataContainers[i]);
-		}
-		free(ppiThreadTracker[i]);
-	}
-	free(ppiThreadTracker);
-	free(pptDataContainers);
-	pptDataContainers = NULL;
 
 	/* Close the sockets, then assign a secure exit value */
 	close(sockServerDescriptor); sockServerDescriptor = -1;
-	puts("EXITING ...")
+   close(sockClientDescriptor); sockClientDescriptor = -1;
 
-	return OK;
+   exit(1);
+   return 1;
 }
 
-void *HandleRequest(void *vptData){
-	/* Preparing for execution */
-	int iReceived, iSent;
-	BSCP_PACKET *bscpPacket = NULL;
-	THREAD_DATA *ptData = NULL;
 
-	ptData = (THREAD_DATA *) vptData;
-	printf("TH-ID %d: THREAD STARTED! on port: %d -> TRACKER [%d, %d, %d]\n", 
-		ptData->iThreadID,
-		PORT,
-		ptData->ppiThreadTracker[0][1],
-		ptData->ppiThreadTracker[1][1],
-		ptData->ppiThreadTracker[2][1]
-	);
-
-	/* Allocate memory for buffer */
-	bscpPacket = (BSCP_PACKET*) malloc(sizeof(BSCP_PACKET));
-	if(bscpPacket == NULL){
-		ptData->ppiThreadTracker[ptData->iThreadID][1] = 0;
-		sem_post(ptData->semThreadReady);
-		return NULL;
-	}
-
-	memset(bscpPacket, 0, sizeof(BSCP_PACKET));
-
-	/* Take request */
-	if((iReceived = recv(ptData->sockClientDescriptor, bscpPacket, MAX_PACKET, 0)) < 0){
-		berror("TH-ID %d: Receive failed! errcode - %d", ptData->iThreadID, errno);
-		free(bscpPacket);
-		ptData->ppiThreadTracker[ptData->iThreadID][1] = 0;
-		sem_post(ptData->semThreadReady);
-		return NULL;
-	} 
-	printf("TH-ID %d: BODY=%s\n", ptData->iThreadID, bscpPacket->szBody);
-
-	/* Send response */
-	if((iSent = send(
-		ptData->sockClientDescriptor,
-		bscpPacket->szBody,
-		strlen(bscpPacket->szBody),
-		MSG_DONTWAIT
-	)) < 0){
-		berror("TH-ID %d: SEND FAILED - errcode %d", ptData->iThreadID, errno);
-		free(bscpPacket);
-		ptData->ppiThreadTracker[ptData->iThreadID][1] = 0;
-		sem_post(ptData->semThreadReady);
-		return NULL;
-	} 
-
-	/* Simulate work */
-	sleep(5);
-
-	/* Signal completion to main process */
-	free(bscpPacket);
-	ptData->ppiThreadTracker[ptData->iThreadID][1] = 0;
-	sem_post(ptData->semThreadReady);
-
-	printf("TH-ID %d: THREAD COMPLETE! Exiting ... -> TRACKER [%d, %d, %d]\n",
-		ptData->iThreadID,
-		ptData->ppiThreadTracker[0][1],
-		ptData->ppiThreadTracker[1][1],
-		ptData->ppiThreadTracker[2][1]
-	);
-
-	/* TODO: Retrieve data from thread? */ 
-	return NULL;
-}
