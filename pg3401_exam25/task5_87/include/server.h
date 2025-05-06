@@ -3,6 +3,14 @@
 
 #define MAX_ID 64
 #define IP_STRING_SIZE 16
+#define SERVER_MSGSIZE 51
+
+/*
+* Function for creating SERVER REPLY struct for convenience.
+ * Takes the SERVER PROTOCOL type struct as a void pointer, statuscode, and a message
+ * Works identically to printf for the message
+ * */
+int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... );
 
 /*
  * Verifies that the header is correct
@@ -23,14 +31,5 @@ void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address);
  * so i have one less line to type for every error scenario :)
  * */
 void CloseSockets(int *sockServer, int *sockClient);
-
-/* Create a formatted string without zero terminator. Takes an anonymous struct and required size of string.
- * As well as format. Works similar to printf 
- * */
-int CreateAcFormattedString(void *vpStruct, int size, const char szFormat[], ... );
-
-/* Takes a struct * and attempts to store a ewa type header on the given address
- * */
-int CreateHeader(void *vpStruct, int iDataSize);
 
 #endif /*ndef-> TASK5_SERVER_H*/

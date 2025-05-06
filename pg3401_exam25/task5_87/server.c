@@ -44,6 +44,11 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Declaring iterator */
    int i;
+   
+   /* Reply structs */
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerAccept = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERHELO ewaServerHelo = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY ewaServerReply = {0};
 
    if(iArgC == 0){
       perror("Server attempted start without arguments.");
@@ -112,22 +117,17 @@ int main(int iArgC, char **arrpszArgV){
    }
    
    /* Create header for ServerAccept protocol */
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerAccept = {0};
-   CreateHeader(&ewaServerAccept.stHead, sizeof(ewaServerAccept));
    
    /* Input protocol body values */
-   strcpy(ewaServerAccept.acStatusCode, "220");
-   strcpy(ewaServerAccept.acHardSpace, " ");
-   CreateAcFormattedString(&ewaServerAccept.acFormattedString, 51, "%X %s %s - %s:%s:%s, %ld",
-            iServerAddress,
-            "SMTP", 
-            szServerID, 
-            "06",
-            "05",
-            "2025",
-            (int)time(NULL)
+   CreateServerReply(&ewaServerAccept, "220", "%X %s %s - %s:%s:%s, %ld",
+      iServerAddress,
+      "SMTP", 
+      szServerID, 
+      "06",
+      "05",
+      "2025",
+      (int)time(NULL)
    );
-   strcpy(ewaServerAccept.acHardZero, "\0");
 
 	/* Send SERVER ACCEPT */
 	if(send(sockClient, &ewaServerAccept, sizeof(ewaServerAccept), 0) < 0){
@@ -144,10 +144,6 @@ int main(int iArgC, char **arrpszArgV){
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
-
-   /* Create SERVERHELO protocol */
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERHELO ewaServerHelo = {0};
-   CreateHeader(&ewaServerHelo.stHead, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO));
 
    /* Verify data received is correct */
    if(
@@ -179,17 +175,16 @@ int main(int iArgC, char **arrpszArgV){
 
          /* Check if remaining string is long enough to hold an IP address with . separators */
          if((strlen(ewaClientHelo.acFormattedString) - strlen(szClientID)) > 7){
-            /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)*/
-            liClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + (i + 1));
 
-            GetIPv4AddressAsString(szClientIP, liClientIP);
+            /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
+             * Keeping it both as a string and in raw format */
+            liClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + (i + 1));
+            GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
 
             /* Verify IP address */
             if(liClientIP > 0){
-               /* If all of these conditions are met, set serreply to OK */
-               strcpy(ewaServerHelo.acStatusCode, "250" /*EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK*/);
-               CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "%d HELLO %s", szClientIP, szClientID);
-               printf("SUCCESS: CLIENT ID=%s, IP=%s(%X)", szClientID, szClientIP, liClientIP);
+               /* If all of these conditions are met, set reply to OK */
+               CreateServerReply(&ewaServerHelo,EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK, "%d HELLO %s", liClientIP, szClientID);
 
             } else {
                perror("INVALID IP ADDRESS: ");
@@ -209,18 +204,51 @@ int main(int iArgC, char **arrpszArgV){
 
    } else {
       perror("INVALID REQUEST STRUCTURE\n");
-      CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "BAD REQUEST");
-      strcpy(ewaServerHelo.acStatusCode, "501");
+      CreateServerReply(&ewaServerHelo,"501", "BAD REQUEST");
    } 
 
-
    strcpy(ewaServerHelo.acHardZero, "\0");
+   printf("%s\n", (char *) &ewaServerHelo);
 
    /* Send SERVERHELO to client */
-	if(send(sockClient, &ewaServerHelo, sizeof(ewaServerHelo), 0) < 0){
+	if(send(sockClient, &ewaServerHelo, 64, 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
+
+   /* RECEIVE "MAIL_FROM PROTOCOL" */
+   struct EWA_EXAM25_TASK5_PROTOCOL_MAILFROM ewaClientMailFrom = { 0 };
+	if(recv(sockClient, &ewaClientMailFrom, sizeof(ewaClientMailFrom), 0) < 0){
+		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+		return -1;
+	} 
+   
+   /* Reusing this struct for replies from now on */
+   CreateServerReply(&ewaServerReply, "250", "MAIL FROM RECEIVED");
+
+   /* REPLY TO "MAIL_FROM" */
+	if(send(sockClient, &ewaServerReply, sizeof(ewaServerReply), 0) < 0){
+		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+	}  
+
+   struct EWA_EXAM25_TASK5_PROTOCOL_RCPTTO ewaClientRCPTTO = { 0 };
+	if(recv(sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
+		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+		return -1;
+	} 
+
+   /* Resetting reply structure and creating a new message */
+   CreateServerReply(&ewaServerReply, "250", "RCPT TO RECEIVED");
+	if(send(sockClient, &ewaServerReply, sizeof(ewaServerReply), 0) < 0){
+		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+	}  
+
+
+
 
 
    CloseSockets(&sockServer, &sockClient);
@@ -228,33 +256,88 @@ int main(int iArgC, char **arrpszArgV){
    return 1;
 }
 
+int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... ){
+   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY *ewaReply = 
+      (struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY *) vpStruct;   
+	va_list vaArgs;
+
+   /* Reset struct */
+   memset(ewaReply, 0, sizeof(64));
+
+   /* Add magic number */
+   strncpy(ewaReply->stHead.acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
+
+   /* Need snprint for converting sizeof data to ascii with padding, but it adds a null terminator to the string when used.
+    * Therefore we first create the string we want and then copy everything but the null terminator to the struct 
+    * Also pad it to four bytes of ASCII by adding leading zeroes */
+
+   char szDataSizeBfr[5];
+   snprintf(szDataSizeBfr, 5, "%04d", sizeof(ewaReply));
+   /* Removing NULL terminator to be sure */
+	szDataSizeBfr[4] = 'X';
+
+   strncpy(ewaReply->stHead.acDataSize, szDataSizeBfr, 4);
+   ewaReply->stHead.acDelimeter[0] =  '|';
+
+   strncpy(ewaReply->acStatusCode, szStatusCode, 3);
+
+   ewaReply->acHardSpace[0] = ' ';
+
+
+	char szBuffer[SERVER_MSGSIZE];
+   memset(szBuffer, 0, SERVER_MSGSIZE);
+
+	va_start(vaArgs, szFormat);
+   /* Adding extra space for zero terminator so it doesn't truncate any data */
+	vsnprintf(szBuffer, SERVER_MSGSIZE + 1, szFormat, vaArgs);
+	va_end(vaArgs);
+
+   /* Removes zero terminator for good measure */
+	szBuffer[strcspn(szBuffer, "\0")] = 0;
+
+   /* Copies the given size argument x bytes of the created string into the struct. */
+   strncpy(ewaReply->acFormattedString, szBuffer, SERVER_MSGSIZE);
+   ewaReply->acHardZero[0] = '\0';
+
+   ewaReply = NULL;
+
+   return 0;
+}
 void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
    char szBuffer[5];
-   char szConverted[16];
+   char szConverted[IP_STRING_SIZE];
    signed char byShiftedAddr;
    int i, j;
 
-
+   memset(szConverted, 0, IP_STRING_SIZE);
    memset(szDestination, 0, IP_STRING_SIZE);
 
-   for(i = 0; i <= 24; i+=8){
+   /* Shitfing right, increasing by 8 for each byte up to 24, leaving 32 bits.*/
+   j = 0;
+   for(i = 0; i <= 24; i += 8){
       byShiftedAddr = liIPv4Address >> i;
 
       /* Resetting buffer */
-      memset(szBuffer, 0, 4);
+      memset(szBuffer, 0, 5);
+
+      j++;
 
       /* Creating string */
-      snprintf(szBuffer, 4, "%d.", byShiftedAddr);
+      if(j != 4)
+         snprintf(szBuffer, 5, "%d.", byShiftedAddr);
+      else 
+         snprintf(szBuffer, 5, "%d", byShiftedAddr);
 
-      printf("IPSTRING=%s\n", szBuffer);
+      /*printf("%d -> IPSTRING=%s\n", j, szBuffer);*/
 
       /* Concatenating buffer to converted string */
       strncat(szConverted, szBuffer, 4);  
    }
 
    strncpy(szDestination, (char*) szConverted, IP_STRING_SIZE);
-   szDestination[IP_STRING_SIZE] = '\0';
+   szDestination[strlen(szDestination)] = '\0';
 }
+
 
 /* NOTE: I didn't test sending a raw ip address string at first so i thought this was required,
  * leaving it in anyway. I figure it's a nice way to verify the address is correct anyway. */
@@ -267,7 +350,6 @@ long int ParseIPv4Address(char szIp[]){
    char szBuffer[4];
    memset(szBuffer, 0, 4);
 
-   printf("Address parser: Input IP string=%s\n", szIp);
    /* Calculates the raw ; i++ip address using shifting. 
     * Loops 15 times since 255.255.255.255 is 15 characters */ 
    for(i = 0; i < 15; i++){
@@ -285,7 +367,7 @@ long int ParseIPv4Address(char szIp[]){
          if(cDigit == '.' || cDigit == '\0'){
             /* zero terminate before attempting int conversion */
             szBuffer[3] = '\0';
-            printf("String segment for bit field %d=%s - i=%d, j=%d\n", iCurrentBitField, szBuffer, i, j);
+            /*printf("String segment for bit field %d=%s - i=%d, j=%d\n", iCurrentBitField, szBuffer, i, j);*/
             switch(iCurrentBitField){
                case 4:
                   liIPv4 += (atoi(szBuffer) << 24); 
@@ -373,49 +455,9 @@ int VerifyHeader(void *vpstHead, int iRequestSizeMax){
 
 }
 
-int CreateHeader(void *vpStruct, int iDataSize){
-   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER *stHead = (struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER *) vpStruct; 
-
-   /* Add magic number */
-   strncpy(stHead->acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
-
-   /* Need snprint for converting sizeof data to ascii with padding, but it adds a null terminator to the string when used.
-    * Therefore we first create the string we want and then copy everything but the null terminator to the struct 
-    * We also pad it to four bytes of ASCII by adding leading zeroes */
-
-   char szDataSizeBfr[5];
-   snprintf(szDataSizeBfr, 5, "%04d", sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT));
-   /* Removing NULL terminator to be sure */
-	szDataSizeBfr[4] = 'X';
-
-   strncpy(stHead->acDataSize, szDataSizeBfr, 4);
-   stHead->acDelimeter[0] =  '|';
-}
-
 void CloseSockets(int *sockServer, int *sockClient){
 	/* Close the sockets, then assign a secure exit value */
 	close(*sockServer); *sockServer = -1;
    close(*sockClient); *sockClient = -1;
 }
-
-int CreateAcFormattedString(void *vpStruct, int size, const char szFormat[], ...){
-	va_list vaArgs;
-   /* Max string is 128 */
-	char szOutput[128] = {0};
-
-	va_start(vaArgs, szFormat);
-   /* Adding extra space for zero terminator so it doesn't truncate any data */
-	vsnprintf(szOutput, size + 1, szFormat, vaArgs);
-	va_end(vaArgs);
-
-   /* Removes zero terminator for good measure */
-	szOutput[strcspn(szOutput, "\0")] = 0;
-
-   /* Copies the given size argument x bytes of the created string into the struct. */
-   strncpy(vpStruct, szOutput, size);
-
-   return 0;
-}
-
-
 
