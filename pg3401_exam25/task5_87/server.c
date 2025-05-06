@@ -39,6 +39,7 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Client Info */
    long int liClientIP;
+   char szClientIP[IP_STRING_SIZE];
    char szClientID[MAX_ID];
 
    /* Declaring iterator */
@@ -181,13 +182,14 @@ int main(int iArgC, char **arrpszArgV){
             /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)*/
             liClientIP = ParseIPv4Address(ewaClientHelo.acFormattedString + (i + 1));
 
+            GetIPv4AddressAsString(szClientIP, liClientIP);
+
             /* Verify IP address */
             if(liClientIP > 0){
-
                /* If all of these conditions are met, set serreply to OK */
                strcpy(ewaServerHelo.acStatusCode, "250" /*EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK*/);
-               CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "%d HELLO %d", htonl(liClientIP), szClientID);
-               printf("SUCCESS: CLIENT ID=%s, IP=%X", szClientID, liClientIP);
+               CreateAcFormattedString(&ewaServerHelo.acFormattedString, 51, "%d HELLO %s", szClientIP, szClientID);
+               printf("SUCCESS: CLIENT ID=%s, IP=%s(%X)", szClientID, szClientIP, liClientIP);
 
             } else {
                perror("INVALID IP ADDRESS: ");
@@ -226,8 +228,36 @@ int main(int iArgC, char **arrpszArgV){
    return 1;
 }
 
+void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
+   char szBuffer[5];
+   char szConverted[16];
+   signed char byShiftedAddr;
+   int i, j;
+
+
+   memset(szDestination, 0, IP_STRING_SIZE);
+
+   for(i = 0; i <= 24; i+=8){
+      byShiftedAddr = liIPv4Address >> i;
+
+      /* Resetting buffer */
+      memset(szBuffer, 0, 4);
+
+      /* Creating string */
+      snprintf(szBuffer, 4, "%d.", byShiftedAddr);
+
+      printf("IPSTRING=%s\n", szBuffer);
+
+      /* Concatenating buffer to converted string */
+      strncat(szConverted, szBuffer, 4);  
+   }
+
+   strncpy(szDestination, (char*) szConverted, IP_STRING_SIZE);
+   szDestination[IP_STRING_SIZE] = '\0';
+}
+
 /* NOTE: I didn't test sending a raw ip address string at first so i thought this was required,
- * leaving it in anyway */
+ * leaving it in anyway. I figure it's a nice way to verify the address is correct anyway. */
 long int ParseIPv4Address(char szIp[]){
    /* Declaring variables */
    long int liIPv4 = 0;
@@ -255,42 +285,40 @@ long int ParseIPv4Address(char szIp[]){
          if(cDigit == '.' || cDigit == '\0'){
             /* zero terminate before attempting int conversion */
             szBuffer[3] = '\0';
-            printf("String segment for bit field %d=%s\n", iCurrentBitField, szBuffer);
+            printf("String segment for bit field %d=%s - i=%d, j=%d\n", iCurrentBitField, szBuffer, i, j);
             switch(iCurrentBitField){
                case 4:
                   liIPv4 += (atoi(szBuffer) << 24); 
                   memset(szBuffer, 0, 4);
-                  i++; /* Skip the next character (.). Repeated for all bit fields except the last */
                   break;
 
                case 3:
                   liIPv4 += (atoi(szBuffer) << 16); 
                   memset(szBuffer, 0, 4);
-                  i++; /* Here */
                   break;
 
                case 2:
                   liIPv4 += (atoi(szBuffer) << 8); 
                   memset(szBuffer, 0, 4);
-                  i++; /* Here */
                   break;
 
                case 1:
                   liIPv4 += atoi(szBuffer); 
                   memset(szBuffer, 0, 4);
-                  /* No skip here so we dont potentially exceed null terminator on next loop */
                   break;
             }
 
             /* Checks next bit field */
             iCurrentBitField--;
+
             /* Resets the other iterator */
             j = 0;
-         }
 
-         /* If no break conditions are hit, keep copying the string into the buffer */
-         szBuffer[j] = cDigit;
-         j++;
+         } else {
+            /* If no break conditions are hit, keep copying the string into the buffer */
+            szBuffer[j] = cDigit;
+            j++;
+         }
       } 
    }
 

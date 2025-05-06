@@ -2,6 +2,7 @@
 #define TASK5_SERVER_H
 
 #define MAX_ID 64
+#define IP_STRING_SIZE 16
 
 /*
  * Verifies that the header is correct
@@ -15,6 +16,8 @@ int ParseRequestSize(char szSize[], int iMax);
  * Calculates the raw ip address number as a long int. Returns -1 if invalid string 
  * */
 long int ParseIPv4Address(char szIp[]);
+
+void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address);
 
 /* Shorthand function for closing sockets, 
  * so i have one less line to type for every error scenario :)
