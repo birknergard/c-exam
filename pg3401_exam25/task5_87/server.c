@@ -42,10 +42,9 @@ int main(int iArgC, char **arrpszArgV){
    char szClientIP[IP_STRING_SIZE]; /* IP as string */
    long int liClientIP; /* IP as raw number */
 
-   /* Declaring iterators */
-   int i, j, n, k;
-   int iMaxDATACMD = 3;
-   int iMaxDATAFILE = 20;
+   /* Declaring boundaries */
+   int iMaxDATACMD = 5;
+   int iMaxDATAFILE = 100;
 
    /* Datafile protocol variables   */
    FILE *fpClientFile = NULL;
@@ -218,12 +217,13 @@ int main(int iArgC, char **arrpszArgV){
    memset(szClientID, 0, MAX_ID);
 
    /* Attempt to parse username into local buffer */
-   for(i = 0; i < iBytesToRead - 8; i++){
-      if(ewaClientHELO.acFormattedString[i] == '.'){
-         szClientID[i] = '\0';
+   int iFormatCRead;
+   for(iFormatCRead = 0; iFormatCRead < iBytesToRead - 8; iFormatCRead++){
+      if(ewaClientHELO.acFormattedString[iFormatCRead] == '.'){
+         szClientID[iFormatCRead] = '\0';
          break;
       }
-      szClientID[i] = ewaClientHELO.acFormattedString[i]; 
+      szClientID[iFormatCRead] = ewaClientHELO.acFormattedString[iFormatCRead]; 
    }
 
    /* ID needs to be at least two characters, 
@@ -245,8 +245,11 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
     * Keeping it both as a string and in raw format */
-   liClientIP = ParseIPv4Address(ewaClientHELO.acFormattedString + (i + 1));
+   liClientIP = ParseIPv4Address(ewaClientHELO.acFormattedString + (iFormatCRead + 1));
    GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
+
+   /* Reset for later use */
+   iFormatCRead = 0;
 
    /* Verify IP address */
    ("IP VALID");
@@ -305,7 +308,7 @@ int main(int iArgC, char **arrpszArgV){
    /* ---DATA PROTOCOL START--- */
    /* From here on the program loops until the client sends a close request or an error occurs.
     * Set upper boundary to three while developing. */
-   k = 0;
+   int k = 0;
    while(++k < iMaxDATACMD){
 
       /* DATACMD/CLOSE: Retrieve as data cmd at first, 
@@ -361,25 +364,26 @@ int main(int iArgC, char **arrpszArgV){
       int iFormattedStringLength = strlen(szFileNameBuffer);
 
       char szFileExtension[5] = {0};
-      j = 0;
 
       /* First, check for illegal symbols (Only reading as many bytes as was verified in head) */
-      for(i = 0; i < iFormattedStringLength; i++){
-         if(ewaClientDATACMD.acFormattedString[i] == '/'){
+      int j = 0;
+      int u;
+      for(u = 0; u < iFormattedStringLength; u++){
+         if(ewaClientDATACMD.acFormattedString[u] == '/'){
             iIllegalCharFound = -1;
             break;
          }
 
          /* Checks if there are null terminators anywhere but at acHardZero */
-         if(ewaClientDATACMD.acFormattedString[i] == '\0' &&
-            &ewaClientDATACMD.acFormattedString[i] != &ewaClientDATACMD.acHardZero[0]){
+         if(ewaClientDATACMD.acFormattedString[u] == '\0' &&
+            &ewaClientDATACMD.acFormattedString[u] != &ewaClientDATACMD.acHardZero[0]){
             iIllegalCharFound = -1;
             break;
          }
 
          /* Check for .eml file extension, when at the last 4 characters of string */
-         if(i >= (iFormattedStringLength - 4)){
-            szFileExtension[j] = ewaClientDATACMD.acFormattedString[i];
+         if(u >= (iFormattedStringLength - 4)){
+            szFileExtension[j] = ewaClientDATACMD.acFormattedString[u];
             j++;
          }
       }
@@ -409,8 +413,8 @@ int main(int iArgC, char **arrpszArgV){
          CloseSockets(&sockServer, &sockClient);
       }  
 
-      /* FILE: Receive the head first */
-      if(recv(sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), 0) < 0){
+      /* FILE: Verify the head first */
+      if(recv(sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), MSG_PEEK) < 0){
          printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
          CloseSockets(&sockServer, &sockClient);
          return -1;
@@ -441,13 +445,12 @@ int main(int iArgC, char **arrpszArgV){
       int iBytesChecked = 0;
       int iEOF = 0;
 
-      n = -1;
-
       /*----DATAFILE RECEIVE LOOP----*/
-      while(++n < iMaxDATAFILE){
+      int n = 0;
+      while(++n < iMaxDATAFILE){ /* Has an upper boundary to prevent infinite loop */
 
          /* DATAFILE: Allocates struct based on header size (NOTE: Excluding header */
-         ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iBytesToRead - 8);
+         ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iBytesToRead);
          if(ewaClientFILE == NULL){
             fclose(fpClientFile);
             /*remove(szClientFileName); NOTE: To remove file if fail?*/
@@ -457,7 +460,7 @@ int main(int iArgC, char **arrpszArgV){
          }
 
          /* DATAFILE: Receives data struct based on header size */
-         if(recv(sockClient, ewaClientFILE, iBytesToRead, 0) < 0){
+         if(recv(sockClient, ewaClientFILE, iBytesToRead, MSG_WAITALL) < 0){
             printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
             free(ewaClientFILE);
             fclose(fpClientFile);
@@ -466,32 +469,35 @@ int main(int iArgC, char **arrpszArgV){
             return -1;
          } 
 
-         /* DATAFILE: Validate header and size NOTE: Remove?*/
-         /*
-         if(sizeof(szServerID) > iBytesToRead){
+         /* DATAFILE: Make sure data matches header?*/
+         if(sizeof(ewaClientFILE) == iBytesToRead){
             HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "BODY DOES NOT MATCH SIZE OF HEADER");
             return 1;
          }
-         */
 
          /* ----DATAFILE READ ENTRY----*/
-         while(iBytesToRead > 0 || n < 20){
+         int y;
+         for(y = 0; y < iBytesToRead; y++){
 
             /* If FileContent size is greater than MAX_READ, we read MAX_READ at a time */
             if(iBytesToRead > MAX_READ){
                iBufferSize = MAX_READ;
+            /* Until the bytes to read is smaller than max read, where we read the remainig bytes */
             } else {
                /* Make one byte bigger, so we can safely zero terminate the string */
                iBufferSize = iBytesToRead + 1;
             }
 
-            char *pszBuffer = NULL;
             /* Allocate the buffer */
             pszBuffer = (char *) malloc(iBufferSize);
             if(pszBuffer == NULL){
                printf("%s: Malloc failed! errcode - %d\n", szServerID, errno);
                free(ewaClientFILE);
+               ewaClientFILE = NULL;
+
                fclose(fpClientFile);
+               fpClientFile = NULL;
+
                HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "ALLOCATION ERROR");
                return -1;
             }
@@ -501,6 +507,7 @@ int main(int iArgC, char **arrpszArgV){
             memset(carrWindow, 0, 3);
 
             /* Checks entire buffer */
+            int i;
             for(i = 0; i < iBufferSize; i++){
 
                /* Create a three byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
@@ -531,14 +538,14 @@ int main(int iArgC, char **arrpszArgV){
              * We reduce the read count for every time we write data to file */
             pszBuffer[iBufferSize];
             iBytesToRead -= fprintf(fpClientFile, pszBuffer, "%s");
-            if(iEOF != 1) memset(pszBuffer, 0, iBufferSize);
+
+            /* Free the buffer */
+            free(pszBuffer);
+            pszBuffer = NULL;
 
             /* If we hit EOF during the parse we exit the loop here. But first we let the client know we are done */
             if(iEOF == 1){
                fclose(fpClientFile);
-
-               free(pszBuffer);
-               pszBuffer = NULL;
                free(ewaClientFILE);
                ewaClientFILE = NULL;
 
@@ -546,8 +553,6 @@ int main(int iArgC, char **arrpszArgV){
             } 
          }
 
-
-         /* DATAFILE: When parsed request, free protocol struct and set to null */
 
          /* DATAFILE: When done with successful request, send response to continue */
          iBytesToRead = 0;
@@ -557,7 +562,7 @@ int main(int iArgC, char **arrpszArgV){
                break;
 
             case 1: 
-               CreateServerReply(&ewaServerREPLY, MSG_250, "DATAFILE OK: WRITE COMPLETE");
+               CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATAFILE OK: WRITE COMPLETE");
                break;
          }
 
@@ -575,7 +580,6 @@ int main(int iArgC, char **arrpszArgV){
             fpClientFile = NULL;
             break; /* Returns to DATACMD/QUIT LOOP */
          }
-
             
          /* DATAFILE: Receive new header */
          if(recv(sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), 0) < 0){
