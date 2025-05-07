@@ -246,7 +246,6 @@ int main(int iArgC, char **arrpszArgV){
       return -1;
 	}  
 
-
    /* RCPT TO: Receive request */
 	if(recv(sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
@@ -396,7 +395,8 @@ int main(int iArgC, char **arrpszArgV){
          int iEOF = 0;
          int iBytesChecked = 0;
 
-         while(1){
+         while(i < 20){
+            i++;
             /* DATAFILE: Allocates struct based on header size */
             ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iBytesToRead);
             if(ewaClientFILE == NULL){
@@ -456,6 +456,11 @@ int main(int iArgC, char **arrpszArgV){
                      iEOF = 1;
 
                      /* We break here so the buffer ends at . */
+                     break;
+                  }
+
+                  /* If we have checked  */
+                  if(iBytesChecked == iBufferSize){
                      break;
                   }
 
