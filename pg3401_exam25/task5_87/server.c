@@ -430,7 +430,7 @@ int main(int iArgC, char **arrpszArgV){
 
       n = -1;
 
-      /*----DATAFILE READ LOOP----*/
+      /*----DATAFILE RECEIVE LOOP----*/
       while(++n < iMaxDATAFILE){
 
          /* DATAFILE: Allocates struct based on header size (NOTE: Excluding header */
@@ -453,13 +453,15 @@ int main(int iArgC, char **arrpszArgV){
             return -1;
          } 
 
-         /* VERIFY SIZE OF BODY NOTE: Remove?*/
+         /* DATAFILE: Validate header and size NOTE: Remove?*/
+         /*
          if(sizeof(szServerID) > iBytesToRead){
             HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "BODY DOES NOT MATCH SIZE OF HEADER");
             return 1;
          }
+         */
 
-         /* ----DATAFILE LOOP ENTRY----*/
+         /* ----DATAFILE READ ENTRY----*/
          while(iBytesToRead > 0 || n < 20){
 
             /* If FileContent size is greater than MAX_READ, we read MAX_READ at a time */
@@ -523,9 +525,8 @@ int main(int iArgC, char **arrpszArgV){
 
                free(pszBuffer);
                pszBuffer = NULL;
-
-	       free(ewaClientFILE);
-	       ewaClientFILE = NULL;
+               free(ewaClientFILE);
+               ewaClientFILE = NULL;
 
                break;
             } 
