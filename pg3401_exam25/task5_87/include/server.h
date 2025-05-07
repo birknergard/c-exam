@@ -27,6 +27,13 @@ typedef struct {
    char acFormattedString[51]; /* For writing messages */
    char acHardZero[1]; /* Set to binary 0, ensures the received data is a zero-terminated string */
 } EWA_PROTOCOL;
+
+
+/* 
+ * Shorthand function for handling server errors
+ * */
+int HandleServerError(int *sockServer, int *sockClient, EWA_PROTOCOL *ewaStruct, char szMessage[]);
+
 /*
 * Function for creating SERVER REPLY struct for convenience.
  * Takes the SERVER PROTOCOL type struct as a void pointer, statuscode, and a message
