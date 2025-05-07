@@ -4,12 +4,14 @@ INCLDIR = ./include
 CC = gcc
 CFLAGS = -O2
 CFLAGS += -I $(INCLDIR)
-CFLAGS += -lpthread
 CFLAGS += -std=c89
 
+# Adds socket library
+CFLAGS += -lsocket
 # Adds the math.h library
 CFLAGS += -lm
-#CFLAGS += -Wall
+
+CFLAGS += -Wall
 
 OBJDIR = obj
 

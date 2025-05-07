@@ -228,20 +228,16 @@ int main(int iArgC, char **arrpszArgV){
 
    /* ID needs to be at least two characters, 
     * max 42 (given that we need address as well, which is minimum 8 (1.1.1.1 */
-   ("IDLEN");
    if(strlen(szClientID) < 2 || strlen(szClientID) > 40){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID CLIENT ID");
       return 1;
    }
-   printf("-> OK\n");
 
-   ("IP MINLEN");
    /* Check if remaining string is long enough to hold an IP address with . separators */
    if((strlen(ewaClientHELO.acFormattedString) - strlen(szClientID)) < 7){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "MISSING IP ADDRESS");
       return 1;
    }
-   printf("-> OK\n");
 
    /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
     * Keeping it both as a string and in raw format */
@@ -252,12 +248,10 @@ int main(int iArgC, char **arrpszArgV){
    iFormatCRead = 0;
 
    /* Verify IP address */
-   ("IP VALID");
    if(liClientIP <= 0){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID IP ADDRESS");
       return 1;
    }
-   printf("-> OK\n");
 
    /* HELO: If all of these conditions are met, set reply to OK */
    CreateServerReply(&ewaServerHELO, MSG_ACCEPT, "%d HELLO %s", liClientIP, szClientID);
@@ -503,21 +497,23 @@ int main(int iArgC, char **arrpszArgV){
             }
 
             /* Write "iBufferSize" count of */
-            char carrWindow[3];
-            memset(carrWindow, 0, 3);
+            char carrWindow[4];
+            memset(carrWindow, 0, 4);
 
             /* Checks entire buffer */
             int i;
             for(i = 0; i < iBufferSize; i++){
 
                /* Create a three byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
-               carrWindow[i] = ewaClientFILE->acFileContent[iBytesChecked];
-               if(i >= 1) carrWindow[i-1] = ewaClientFILE->acFileContent[iBytesChecked-1];
-               if(i >= 2) carrWindow[i-2] = ewaClientFILE->acFileContent[iBytesChecked-2];
+               carrWindow[2] = ewaClientFILE->acFileContent[iBytesChecked];
+               if(i >= 1) carrWindow[1] = ewaClientFILE->acFileContent[iBytesChecked-1];
+               if(i >= 2) carrWindow[0] = ewaClientFILE->acFileContent[iBytesChecked-2];
 
+               /* End with a null terminator so we can compare as string */
+               carrWindow[3] = '\0';
 
                /* Reads from right to left, starting at the third index */
-               if(carrWindow == "\n.\n"){
+               if(strncmp(carrWindow, "\n.\n", 4) == 0){
                   iEOF = 1;
 
                   /* We break here so the buffer ends at . */
@@ -536,8 +532,12 @@ int main(int iArgC, char **arrpszArgV){
 
             /* Once we've checked the buffer, we write to the file
              * We reduce the read count for every time we write data to file */
-            pszBuffer[iBufferSize];
-            iBytesToRead -= fprintf(fpClientFile, pszBuffer, "%s");
+            if(iBufferSize < MAX_READ){
+               pszBuffer[iBufferSize] = '\0';
+            }
+
+            iBytesToRead -= fwrite(pszBuffer, 1, iBufferSize, fpClientFile);
+               /*fprintf(fpClientFile, pszBuffer, "%s"); */
 
             /* Free the buffer */
             free(pszBuffer);
@@ -582,7 +582,7 @@ int main(int iArgC, char **arrpszArgV){
          }
             
          /* DATAFILE: Receive new header */
-         if(recv(sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), 0) < 0){
+         if(recv(sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), MSG_PEEK) < 0){
             printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
             fclose(fpClientFile);
             fpClientFile = NULL;
