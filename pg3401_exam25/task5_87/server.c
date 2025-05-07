@@ -54,9 +54,9 @@ int main(int iArgC, char **arrpszArgV){
 
 
    /* Reply structs */
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERACCEPT ewaServerACCEPT = {0};
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERHELO ewaServerHELO = {0};
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY ewaServerREPLY = {0};
+   EWA_PROTOCOL ewaServerACCEPT = {0};
+   EWA_PROTOCOL ewaServerHELO = {0};
+   EWA_PROTOCOL ewaServerREPLY = {0};
 
    /* Request structs (from client) */
    struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO ewaClientHELO = {0};
@@ -67,17 +67,18 @@ int main(int iArgC, char **arrpszArgV){
    struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *ewaClientFILE = NULL; /* Pointer because data is dynamic*/
    struct EWA_EXAM25_TASK5_PROTOCOL_CLOSECOMMAND ewaClientCLOSE = {0};
 
+   /* Checking if arguments were provided */
    if(iArgC == 0){
       perror("Server attempted start without arguments.");
       return -1;
    }
 
-   /* Parse program arguments */
+   /* Parse program arguments 
+      If flag was given, store id from arguments */
    if(strcmp(arrpszArgV[1], "-port") == 0){
       iPortNumber = atoi(arrpszArgV[2]);
    }
 
-   /* If flag was given, store id from arguments */
    if(strcmp(arrpszArgV[3], "-id") == 0){
       strncpy(szServerID, arrpszArgV[4], MAX_ID);
       szServerID[strlen(szServerID)] = '\0';
@@ -103,15 +104,18 @@ int main(int iArgC, char **arrpszArgV){
 	/* Bind socket to address */
 	if(bind(sockServer, (struct sockaddr *) &saServerAddress, sizeof(saServerAddress)) < 0){
 		printf("Error with bind() - errcode %d", errno);
-		close(sockServer); sockServer = -1;
+		close(sockServer);
+      sockServer = -1;
 		return -1;
 	} 
 
-	/* Make server listen for input */
+	/* Make server listen for input. 
+    * Since its only one client we set listen to 1 */
 	iListened =	listen(sockServer, 1);
 	if(iListened < 0){
 		printf("Listen failed - errcode: %d", errno);
-		close(sockServer); sockServer = -1;
+		close(sockServer); 
+      sockServer = -1;
 		return -1;
 	}
 
@@ -126,10 +130,12 @@ int main(int iArgC, char **arrpszArgV){
       (socklen_t *) &iNewAddressLength
    )) < 0){
       printf("%s: Accept failed! errcode - %d\n", szServerID, errno);
+      /* Since both sockets are open we use this helper function instead */
       CloseSockets(&sockServer, &sockClient);
       return -1;
    }
    
+   /* ACCEPT: Create server reply protocol */
    CreateServerReply(&ewaServerACCEPT, "220", "%X %s %s - %s:%s:%s, %ld",
       iServerAddress,
       "SMTP", 
@@ -144,6 +150,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerACCEPT, sizeof(ewaServerACCEPT), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
+      return 1;
 	}  
 
    /* HELO: Receive request */
@@ -152,11 +159,12 @@ int main(int iArgC, char **arrpszArgV){
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
+   /* Print to terminal */
    printf("HELO REQ: %s\n", (char *) &ewaClientHELO);
 
    /* HELO: Validate client request */
-   /* CHECKLIST:
-    *  1. VALID HEADER:
+   /* CHECKLIST FOR VALIDATION:
+    *  1. VALID HEADER (used for every header after this):
     *    -> MAGIC = 'EWA'
     *    -> DELIMITER = '|'
     *    -> BYTE COUNT:
@@ -165,7 +173,7 @@ int main(int iArgC, char **arrpszArgV){
     *
     *  2. REQUEST BODY:
     *    -> COMMAND = "HELO"*/
-   if((iBytesToRead = VerifyHeader(ewaClientHELO.stHead, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO))) > 0) {
+   if((iBytesToRead = VerifyHeader(ewaClientHELO.stHead, sizeof(ewaClientHELO))) > 0) {
       if( /* Verify body structure */
          (strncmp(ewaClientHELO.acCommand, "HELO", 4) == 0) &&
          ewaClientHELO.acHardSpace[0] == 0x20 && /* ASCI value for space */
@@ -204,11 +212,13 @@ int main(int iArgC, char **arrpszArgV){
                      &ewaServerHELO, EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_OK,
                      "%d HELLO %s", liClientIP, szClientID
                   );
-               } else CreateServerReply(&ewaServerHELO,"501", "INVALID IP ADDRESS");
-            } else CreateServerReply(&ewaServerHELO,"501", "NO IP ADDRESS PROVIDED");
-         } else CreateServerReply(&ewaServerHELO,"501", "CLIENT ID IS INVALID");
-      } else CreateServerReply(&ewaServerHELO,"501", "BAD REQUEST");
-   } else CreateServerReply(&ewaServerHELO,"501", "NO IP ADDRESS PROVIDED");
+
+                  /* Otherwise we set status to ERROR, and provide a brief explanation */
+               } else CreateServerReply(&ewaServerHELO,MSG_ERROR, "INVALID IP ADDRESS");
+            } else CreateServerReply(&ewaServerHELO,MSG_ERROR, "NO IP ADDRESS PROVIDED");
+         } else CreateServerReply(&ewaServerHELO,MSG_ERROR, "CLIENT ID IS INVALID");
+      } else CreateServerReply(&ewaServerHELO,MSG_ERROR, "BAD REQUEST");
+   } else CreateServerReply(&ewaServerHELO,MSG_ERROR, "INVALID HEADER");
 
 
    /* HELO: Send response to client */
@@ -229,7 +239,7 @@ int main(int iArgC, char **arrpszArgV){
    
 
    /* MAIL FROM: Sending response to client */
-   CreateServerReply(&ewaServerREPLY, "250", "MAIL FROM RECEIVED");
+   CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "MAIL FROM RECEIVED");
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
@@ -247,7 +257,7 @@ int main(int iArgC, char **arrpszArgV){
    /* TODO: Validation of RCPT TO*/
 
    /* RCPT TO: Send response */
-   CreateServerReply(&ewaServerREPLY, "250", "RCPT TO RECEIVED");
+   CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "RCPT TO RECEIVED");
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
@@ -257,18 +267,9 @@ int main(int iArgC, char **arrpszArgV){
    /* ---DATA PROTOCOL START--- */
    /* From here on the program loops until the client sends a close request*/
    for(;;){
-      char ewaANON[12] = {0};
 
-      /* DATACMD/CLOSE: Retrieve as anonymous byte array to retrieve command */
-      if(recv(sockClient, &ewaANON, sizeof(64), 0) < 0){
-         printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
-         CloseSockets(&sockServer, &sockClient);
-         return -1;
-      } 
-
-      /* Verify header */
-      if(VerifyHeader(()) > -1) 
-
+      /* DATACMD/CLOSE: Retrieve as data cmd at first, 
+       * but checking command for actual protocol */
       if(recv(sockClient, &ewaClientDATACMD, sizeof(ewaClientDATACMD), 0) < 0){
          printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
          CloseSockets(&sockServer, &sockClient);
@@ -286,7 +287,30 @@ int main(int iArgC, char **arrpszArgV){
       char szFileNameBuffer[50] = {0};
 
       if((iBytesToRead = VerifyHeader(ewaClientDATACMD.stHead, 64)) != -1){
-         printf("HEADER->OK;");
+
+         /* Storing command in this buffer */
+         char szCommand[5] = {0}; 
+         snprintf(szCommand, 5, "%s", ewaClientDATACMD.acCommand);
+
+
+         /* QUIT: If the command is quit, we exit the program completely */
+         if(strcmp(szCommand, "QUIT") == 0){
+            CreateServerReply(&ewaServerREPLY, MSG_EXIT, "QUIT RECEIVED: EXITING SERVER");
+            if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+               printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+               CloseSockets(&sockServer, &sockClient);
+               return -1;
+            }  
+
+            /* Exit Loop */
+            break;
+         }
+
+         /* DATA: if command is not DATA, we give an error right away */
+         if(strcmp(szCommand, "DATA") != 0){
+
+         }
+
 
          /* Creating zero terminated buffer, to retrieve strlen
           * (cant retrieve strlen since acFormattedString isnt zero terminated) */
@@ -326,9 +350,9 @@ int main(int iArgC, char **arrpszArgV){
                   EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_READY,
                   "FILENAME OK, READY FOR HEADER"
                );
-            } else CreateServerReply(&ewaServerREPLY, "501", "INVALID FILE TYPE");
-         } else CreateServerReply(&ewaServerREPLY, "501", "CONTAINS ILLEGAL SYMBOLS");
-      } else CreateServerReply(&ewaServerREPLY, "501", "DENIED HEADER/BYTE SIZE"); 
+            } else CreateServerReply(&ewaServerREPLY, MSG_ERROR, "INVALID FILE TYPE");
+         } else CreateServerReply(&ewaServerREPLY, MSG_ERROR, "CONTAINS ILLEGAL SYMBOLS");
+      } else CreateServerReply(&ewaServerREPLY, MSG_ERROR, "DENIED HEADER/BYTE SIZE"); 
 
       /* Create filename at current directory (./FILENAME). Reusing buffer from validation step */
       char szClientFileName[64] = {'.', '/'}; 
@@ -352,7 +376,7 @@ int main(int iArgC, char **arrpszArgV){
       /* DATAFILE: Verify first header before loop entry */
       iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_READ);
       if(iBytesToRead == -1) {
-         CreateServerReply(&ewaServerREPLY, "501", "FILE REQUEST DENIED - COULD NOT READ HEADER");
+         CreateServerReply(&ewaServerREPLY, MSG_ERROR, "FILE REQUEST DENIED - COULD NOT READ HEADER");
          if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
             printf("%s: SEND FAILED - errcode %d", szServerID, errno);
             CloseSockets(&sockServer, &sockClient);
@@ -367,6 +391,7 @@ int main(int iArgC, char **arrpszArgV){
 
          /* DATAFILE: Open file */
          FILE *fpClientFile = fopen(szClientFileName, "w+");
+         char *pszBuffer = NULL;
          int iBufferSize;
          int iEOF = 0;
          int iBytesChecked = 0;
@@ -407,6 +432,7 @@ int main(int iArgC, char **arrpszArgV){
                pszBuffer = (char *) malloc(iBufferSize);
                if(pszBuffer == NULL){
                   printf("%s: Malloc failed! errcode - %d\n", szServerID, errno);
+                  free(ewaClientFILE);
                   fclose(fpClientFile);
                   CloseSockets(&sockServer, &sockClient);
                   return -1;
@@ -441,10 +467,11 @@ int main(int iArgC, char **arrpszArgV){
                /* Once we've checked the buffer, we write to the file
                 * We reduce the read count for every time we write data to file */
                iBytesToRead -= fprintf(fpClientFile, pszBuffer, "%c");
-               memset(pszBuffer, 0, iBufferSize);
+               if(iEOF != 1) memset(pszBuffer, 0, iBufferSize);
 
                /* If we hit EOF during the parse we exit the loop here. But first we let the client know we are done */
                if(iEOF == 1){
+                  fclose(fpClientFile);
                   free(pszBuffer);
                   pszBuffer = NULL;
                   break;
@@ -461,11 +488,11 @@ int main(int iArgC, char **arrpszArgV){
             iBytesToRead = 0;
             switch(iEOF){
                case 0: 
-                  CreateServerReply(&ewaServerREPLY, "354", "DATAFILE OK - READY");
+                  CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK - READY");
                   break;
 
                case 1: 
-                  CreateServerReply(&ewaServerREPLY, "354", "DATAFILE OK: WRITE COMPLETE");
+                  CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK: WRITE COMPLETE");
                   break;
             }
 
@@ -485,7 +512,7 @@ int main(int iArgC, char **arrpszArgV){
             }
             
             /* DATAFILE: Receive new header */
-            if(recv(sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), 0) < 0){
+            if(recv(sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), 0) < 0){
                printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
                fclose(fpClientFile);
                fpClientFile = NULL;
@@ -496,7 +523,7 @@ int main(int iArgC, char **arrpszArgV){
             /* DATAFILE: Verify and reenter loop */
             iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_READ);
             if(iBytesToRead == -1){
-               CreateServerReply(&ewaServerREPLY, "501", "FILE REQUEST DENIED - COULD NOT READ HEADER");
+               CreateServerReply(&ewaServerREPLY, MSG_ERROR, "FILE REQUEST DENIED - COULD NOT READ HEADER");
                if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
                   printf("%s: SEND FAILED - errcode %d", szServerID, errno);
                   fclose(fpClientFile);
@@ -516,32 +543,34 @@ int main(int iArgC, char **arrpszArgV){
    return 1;
 }
 
-int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... ){
-   struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY *ewaReply = 
-      (struct EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY *) vpStruct;   
+/*
+ * Since im going to verify my own structs, but rather the client structs,
+ * this function takes a void* of the header struct
+ * */
+int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szFormat[], ... ){
 	va_list vaArgs;
 
    /* Reset struct */
-   memset(ewaReply, 0, sizeof(64));
+   memset(ewaStruct, 0, sizeof(64));
 
    /* Add magic number */
-   strncpy(ewaReply->stHead.acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
+   strncpy(ewaStruct->stHead.acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
 
    /* Need snprint for converting sizeof data to ascii with padding, but it adds a null terminator to the string when used.
     * Therefore we first create the string we want and then copy everything but the null terminator to the struct 
     * Also pad it to four bytes of ASCII by adding leading zeroes */
 
    char szDataSizeBfr[5];
-   snprintf(szDataSizeBfr, 5, "%04d", sizeof(ewaReply));
+   snprintf(szDataSizeBfr, 5, "%04d");
    /* Removing NULL terminator to be sure */
 	szDataSizeBfr[4] = 'X';
 
-   strncpy(ewaReply->stHead.acDataSize, szDataSizeBfr, 4);
-   ewaReply->stHead.acDelimeter[0] =  '|';
+   strncpy(ewaStruct->stHead.acDataSize, szDataSizeBfr, 4);
+   ewaStruct->stHead.acDelimeter[0] =  '|';
 
-   strncpy(ewaReply->acStatusCode, szStatusCode, 3);
+   strncpy(ewaStruct->acStatusCode, szStatusCode, 3);
 
-   ewaReply->acHardSpace[0] = ' ';
+   ewaStruct->acHardSpace[0] = ' ';
 
 
 	char szBuffer[SERVER_MSGSIZE];
@@ -556,10 +585,10 @@ int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... 
 	szBuffer[strcspn(szBuffer, "\0")] = 0;
 
    /* Copies the given size argument x bytes of the created string into the struct. */
-   strncpy(ewaReply->acFormattedString, szBuffer, SERVER_MSGSIZE);
-   ewaReply->acHardZero[0] = '\0';
+   strncpy(ewaStruct->acFormattedString, szBuffer, SERVER_MSGSIZE);
+   ewaStruct->acHardZero[0] = '\0';
 
-   ewaReply = NULL;
+   ewaStruct = NULL;
 
    return 0;
 }

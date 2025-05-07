@@ -7,6 +7,10 @@
 #define IP_STRING_SIZE 16
 #define SERVER_MSGSIZE 51
 
+#define MSG_ACCEPT "250"
+#define MSG_OK "354"
+#define MSG_ERROR "501"
+#define MSG_EXIT "221"
 
 /* Since the structs provided for use in the server are identical in bit structure, 
  * i decided to make my own version which I can use more liberally*/
@@ -18,16 +22,17 @@ typedef struct {
 
 typedef struct {
    EWA_HEAD stHead; 
-   char acCommand[4]; /* Set to QUIT */
-   char acFormattedString[51]; /* Reserved for future use */
+   char acStatusCode[3]; 
+   char acHardSpace[1]; /* Set to a space (ascii 0x20) */
+   char acFormattedString[51]; /* For writing messages */
    char acHardZero[1]; /* Set to binary 0, ensures the received data is a zero-terminated string */
-} EWP_PROTOCOL
+} EWA_PROTOCOL;
 /*
 * Function for creating SERVER REPLY struct for convenience.
  * Takes the SERVER PROTOCOL type struct as a void pointer, statuscode, and a message
  * Works identically to printf for the message
  * */
-int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... );
+int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szFormat[], ... );
 
 /*
  * Verifies that the header is correct
