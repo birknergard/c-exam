@@ -2,7 +2,7 @@
 #define TASK5_SERVER_H
 
 #define MAX_ID 64
-#define MAX_READ 4096
+#define MAX_READ 9998
 #define IP_STRING_SIZE 16
 #define SERVER_MSGSIZE 51
 

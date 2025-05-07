@@ -51,7 +51,6 @@ int main(int iArgC, char **arrpszArgV){
    int iValidFileExtension;
    
    /* Other */
-   char szFileExtension[4];
 
 
    /* Reply structs */
@@ -63,7 +62,10 @@ int main(int iArgC, char **arrpszArgV){
    struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTHELO ewaClientHELO = {0};
    struct EWA_EXAM25_TASK5_PROTOCOL_MAILFROM ewaClientMAILFROM = {0};
    struct EWA_EXAM25_TASK5_PROTOCOL_RCPTTO ewaClientRCPTTO = {0};
-   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientDATA = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientDATACMD = {0};
+   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER ewaClientFILEHEAD = {0}; 
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *ewaClientFILE = NULL; /* Pointer because data is dynamic*/
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLOSECOMMAND ewaClientCLOSE = {0};
 
    if(iArgC == 0){
       perror("Server attempted start without arguments.");
@@ -213,6 +215,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerHELO, 64, 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
+      return -1;
 	}  
 
    /* RECEIVE "MAIL_FROM PROTOCOL" */
@@ -230,6 +233,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
+      return -1;
 	}  
 
 
@@ -247,15 +251,16 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
+      return -1;
 	}  
 
    /* DATA: Receive request */
-	if(recv(sockClient, &ewaClientDATA, sizeof(ewaClientDATA), 0) < 0){
+	if(recv(sockClient, &ewaClientDATACMD, sizeof(ewaClientDATACMD), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 		return -1;
 	} 
-   printf("DATA REQ: %s\n", (char *) &ewaClientDATA);
+   printf("DATACMD REQ: %s\n", (char *) &ewaClientDATACMD);
 
    /* DATA: Verifying filename is valid.
     *    MUST HAVE: .eml
@@ -264,39 +269,164 @@ int main(int iArgC, char **arrpszArgV){
    iBytesToRead = 0;
    iIllegalCharFound = 0;
    iValidFileExtension = 0;
+   char szFileNameBuffer[50] = {0};
 
-   if((iBytesToRead = VerifyHeader(ewaClientDATA.stHead, 64)) != -1){
+   if((iBytesToRead = VerifyHeader(ewaClientDATACMD.stHead, 64)) != -1){
       printf("HEADER->OK;");
-      char szFileExtension[4];
+
+      /* Creating zero terminated buffer, to retrieve strlen
+       * (cant retrieve strlen since acFormattedString isnt zero terminated) */
+      strncpy(szFileNameBuffer, ewaClientDATACMD.acFormattedString, 50);
+      szFileNameBuffer[49] = '\0';
+      int iFormattedStringLength = strlen(szFileNameBuffer);
+
+      char szFileExtension[5] = {0};
+      j = 0;
+
       /* First, check for illegal symbols (Only reading as many bytes as was verified in head) */
-      for(i = 0; i < 50; i++){
-         if(ewaClientDATA.acFormattedString[i] == '/'){
-            iIllegalCharFound = 1;
+      for(i = 0; i < iFormattedStringLength; i++){
+         if(ewaClientDATACMD.acFormattedString[i] == '/'){
+            iIllegalCharFound = -1;
             break;
          }
          /* Checks if there are null terminators anywhere but at acHardZero */
-         if(ewaClientDATA.acFormattedString[i] == '\0' &&
-            &ewaClientDATA.acFormattedString[i] != &ewaClientDATA.acHardZero[0]){
-            iIllegalCharFound = 1;
+         if(ewaClientDATACMD.acFormattedString[i] == '\0' &&
+            &ewaClientDATACMD.acFormattedString[i] != &ewaClientDATACMD.acHardZero[0]){
+            iIllegalCharFound = -1;
             break;
+         }
 
+         /* Check for .eml file extension, when at the last 4 characters of string */
+         if(i >= (iFormattedStringLength - 4)){
+            szFileExtension[j] = ewaClientDATACMD.acFormattedString[i];
+            j++;
          }
       }
-      if(iIllegalCharFound != 1){
-         CreateServerReply(
-            &ewaServerREPLY,
-            EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_READY,
-            "DATA COMMAND ACCEPTED. WAITING FOR FILE."
-         );
+      szFileExtension[4] = '\0';
+      iValidFileExtension = strncmp(szFileExtension, ".eml", 4);
+
+      if(iIllegalCharFound != -1){
+         if(iValidFileExtension == 0){
+            CreateServerReply(
+               &ewaServerREPLY,
+               EWA_EXAM25_TASK5_PROTOCOL_SERVERREPLY_READY,
+               "FILENAME OK, READY FOR HEADER"
+            );
+         } else CreateServerReply(&ewaServerREPLY, "501", "INVALID FILE TYPE");
       } else CreateServerReply(&ewaServerREPLY, "501", "CONTAINS ILLEGAL SYMBOLS");
    } else CreateServerReply(&ewaServerREPLY, "501", "DENIED HEADER/BYTE SIZE"); 
 
-   /* DATA: Send reply  */
+   /* Create filename at current directory (./FILENAME). Reusing buffer from validation step */
+   char szClientFileName[64] = {'.', '/'}; 
+   strcat(szClientFileName, szFileNameBuffer);
+
+   /* DATACMD: Send reply  */
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
 	}  
 
+   /* DATAFILE: Allocating memory for DATAFILE struct,   */
+   /*
+   */
+
+   iBytesToRead = 0;
+   /* FILE: Receive the head first */
+   if(recv(sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), 0) < 0){
+      printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+      CloseSockets(&sockServer, &sockClient);
+      return -1;
+   } 
+   printf("DATAFILE HEAD: %s\n", (char *) &ewaClientFILEHEAD);
+
+
+   /* DATAFILE: Verify first header before loop entry */
+   iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_READ);
+   if(iBytesToRead == -1) {
+      CreateServerReply(&ewaServerREPLY, "501", "FILE REQUEST DENIED - COULD NOT READ HEADER");
+      if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+         printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+         CloseSockets(&sockServer, &sockClient);
+         return -1;
+      }
+
+   /* If there's problems with header, start receiving data */
+   } else {
+
+      /* Open file */
+      FILE *fpClientFile = fopen(szClientFileName, "w+");
+
+      while(1){
+         /* DATAFILE: Allocates struct based on header size */
+         ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iBytesToRead);
+         if(ewaClientFILE == NULL){
+            printf("%s: Malloc failed! errcode - %d\n", szServerID, errno);
+            fclose(fpClientFile);
+            CloseSockets(&sockServer, &sockClient);
+         }
+
+         /* DATAFILE: Receives data struct based on header size */
+         if(recv(sockClient, ewaClientFILE, iBytesToRead, 0) < 0){
+            printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+            free(ewaClientFILE);
+            fclose(fpClientFile);
+            fpClientFile = NULL;
+            CloseSockets(&sockServer, &sockClient);
+            return -1;
+         } 
+         /* DATAFILE: TODO: Verify and write */
+
+         printf("%s\n", ewaClientFILE->acFileContent);
+
+
+         /* DATAFILE: When parsed request, free protocol struct and set to null */
+         free(ewaClientFILE);
+         ewaClientFILE = NULL;
+
+         /* DATAFILE: When done with successful request, send response to continue */
+         iBytesToRead = 0;
+         CreateServerReply(&ewaServerREPLY, "354", "DATAFILE OK - READING NEXT HEADER");
+         if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+            printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+            fclose(fpClientFile);
+            fpClientFile = NULL;
+            CloseSockets(&sockServer, &sockClient);
+            return -1;
+         }
+         
+         /* FILE: Receive the head first */
+         if(recv(sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), 0) < 0){
+            printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
+            fclose(fpClientFile);
+            fpClientFile = NULL;
+            CloseSockets(&sockServer, &sockClient);
+            return -1;
+         } 
+
+         printf("DATAFILE HEAD: %s\n", (char *) &ewaClientFILEHEAD);
+         /* DATAFILE: Verify first header before loop entry */
+         iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_READ);
+         if(iBytesToRead == -1){
+            CreateServerReply(&ewaServerREPLY, "501", "FILE REQUEST DENIED - COULD NOT READ HEADER");
+            if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+               printf("%s: SEND FAILED - errcode %d", szServerID, errno);
+               fclose(fpClientFile);
+               fpClientFile = NULL;
+               CloseSockets(&sockServer, &sockClient);
+               return - 1;
+            }
+         }
+      }
+   }
+
+
+
+
+
+
+
+   /* Write to file */
+   ewaClientFILE = NULL;
    CloseSockets(&sockServer, &sockClient);
    exit(1);
    return 1;
@@ -355,23 +485,23 @@ int CreateServerReply(void *vpStruct, char szStatusCode[], char szFormat[], ... 
  * Returns the data size from header if accepted, otherwise returns -1.
  * */
 int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit){
-   /* Check data size */
+   /* Declaring variables */
    int iSize = 0, i;
    char szBuf[4] = {0};
 
    /* Check structure */ 
-   printf("Checking MAGIC;");
+   printf("Checking MAGIC");
    if(strncmp(stHead.acMagicNumber, "EWP", 3) != 0) return -1;
-   printf("Checking DELIMETER;");
-   if(stHead.acDelimeter[0] != '|') return -1;
+   printf("-> OK\n");
 
    /* Checks if every byte is a digit. Only reads ever reads 4 digits. */
-   printf("Checking IF DIGITS;");
+   printf("Checking IF DIGITS");
    for(i = 0; i < 4; i++){
       if(isdigit(stHead.acDataSize[i]) == 0){
          return -1;
       }
    }
+   printf("-> OK\n");
    /* Ensures only 4 digits are read */
    strncpy(szBuf, stHead.acDataSize, 4);
 
@@ -381,9 +511,14 @@ int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLi
    /* Check if value exceeds max (given as argument) */
    printf("Checking WITHIN BYTELIMIT;");
    if(iSize > iByteLimit) return -1;
+   printf("-> OK\n");
 
-   printf("-- OK\n");
+   printf("Checking DELIMETER;");
+   if(stHead.acDelimeter[0] != '|') return -1;
+   printf("-> OK\n");
+
    /* All checks passed */
+   printf("HEADER VERIFIED\n");
    return iSize;
 }
 
