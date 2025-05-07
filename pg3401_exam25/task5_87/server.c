@@ -37,7 +37,7 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Client Info */
    int sockClient = -1;
-	struct sockaddr_in saClientAddress = {0};
+   struct sockaddr_in saClientAddress = {0};
    char szClientID[MAX_ID];
    char szClientIP[IP_STRING_SIZE]; /* IP as string */
    long int liClientIP; /* IP as raw number */
@@ -78,7 +78,7 @@ int main(int iArgC, char **arrpszArgV){
    /* Checking if arguments were provided */
    if(iArgC == 0){
       perror("Server attempted start without arguments.");
-      return -1;
+      return 1;
    }
 
    /* Parse program arguments 
@@ -97,7 +97,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(sockServer < 0){
 		printf("Error when opening socket - errcode: %d", errno);
 		close(sockServer);
-		return -1;
+		return 1;
 	}
 
 	/* Sets address type */
@@ -114,7 +114,7 @@ int main(int iArgC, char **arrpszArgV){
 		printf("Error with bind() - errcode %d", errno);
 		close(sockServer);
       sockServer = -1;
-		return -1;
+		return 1;
 	} 
 
 	/* Make server listen for input. 
@@ -124,7 +124,7 @@ int main(int iArgC, char **arrpszArgV){
 		printf("Listen failed - errcode: %d", errno);
 		close(sockServer); 
       sockServer = -1;
-		return -1;
+		return 1;
 	}
 
 	/* Initialize client socket address to zero */
@@ -140,7 +140,7 @@ int main(int iArgC, char **arrpszArgV){
       printf("%s: Accept failed! errcode - %d\n", szServerID, errno);
       /* Since both sockets are open we use this helper function instead */
       CloseSockets(&sockServer, &sockClient);
-      return -1;
+      return 1;
    }
    
    /* ACCEPT: Create server reply protocol */
@@ -165,7 +165,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(recv(sockClient, &ewaClientHELO, sizeof(ewaClientHELO), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-		return -1;
+		return 1;
 	} 
    /* Print to terminal */
    printf("HELO REQ: %s\n", (char *) &ewaClientHELO);
@@ -183,29 +183,35 @@ int main(int iArgC, char **arrpszArgV){
     *    -> COMMAND = "HELO"*/
    if((iBytesToRead = VerifyHeader(ewaClientHELO.stHead, sizeof(ewaClientHELO))) < 0) {/* NOT VALID header */
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID HEADER");
-      return -1;
+      return 1;
    }
 
-   /*---HELO VERIFY BLOCK---*/
+   /* NOT HELO COMMAND */
    if(strncmp(ewaClientHELO.acCommand, "HELO", 4) != 0){ /* NOT HELO command */
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID COMMAND. \"HELO\" EXPECTED");
-      return -1;
+      return 1;
    } 
+   printf("-> OK\n");
 
+   /* NOT ASCI 0x20 HARDSPACE */
    if(ewaClientHELO.acHardSpace[0] != 0x20 ){ /* NOT ASCI value for space */
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID FORMAT");
-      return -1;
+      return 1;
    }
+   printf("-> OK\n");
 
-   if(sizeof(ewaClientHELO.acFormattedString) > 50 || sizeof(ewaClientHELO.acFormattedString) < 0){
+   /* STRING SIZE OUT OF BOUNDS */
+   if(sizeof(ewaClientHELO.acFormattedString) > 51 || sizeof(ewaClientHELO.acFormattedString) < 0){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID REQUEST STRING SIZE");
-      return -1;
+      return 1;
    }
+   printf("-> OK\n");
 
-   if(ewaClientHELO.acHardZero[0] == '\0' /* Zero terminator */){
+   if(ewaClientHELO.acHardZero[0] != '\0' /* Zero terminator */){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "MISSING ZERO TERMINATOR");
       return -1;
    }
+   printf("-> OK\n");
 
    /* Initialize local variables for client data */
    liClientIP = 0;
@@ -222,16 +228,20 @@ int main(int iArgC, char **arrpszArgV){
 
    /* ID needs to be at least two characters, 
     * max 42 (given that we need address as well, which is minimum 8 (1.1.1.1 */
+   ("IDLEN");
    if(strlen(szClientID) < 2 || strlen(szClientID) > 40){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID CLIENT ID");
       return 1;
    }
+   printf("-> OK\n");
 
+   ("IP MINLEN");
    /* Check if remaining string is long enough to hold an IP address with . separators */
    if((strlen(ewaClientHELO.acFormattedString) - strlen(szClientID)) < 7){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "MISSING IP ADDRESS");
       return 1;
    }
+   printf("-> OK\n");
 
    /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
     * Keeping it both as a string and in raw format */
@@ -239,26 +249,28 @@ int main(int iArgC, char **arrpszArgV){
    GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
 
    /* Verify IP address */
+   ("IP VALID");
    if(liClientIP <= 0){
 	   HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID IP ADDRESS");
       return 1;
    }
+   printf("-> OK\n");
 
    /* HELO: If all of these conditions are met, set reply to OK */
-   CreateServerReply(&ewaServerHELO, MSG_OK, "%d HELLO %s", liClientIP, szClientID);
+   CreateServerReply(&ewaServerHELO, MSG_ACCEPT, "%d HELLO %s", liClientIP, szClientID);
 
    /* HELO: Send response to client */
 	if(send(sockClient, &ewaServerHELO, 64, 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-      return -1;
+      return 1;
 	}  
 
    /* RECEIVE "MAIL_FROM PROTOCOL" */
 	if(recv(sockClient, &ewaClientMAILFROM, sizeof(ewaClientMAILFROM), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-		return -1;
+		return 1;
 	} 
    printf("MAIL FROM REQ: %s\n", (char *) &ewaClientMAILFROM);
    /* TODO: Validation of MAIL FROM TO*/
@@ -269,14 +281,14 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-      return -1;
+      return 1;
 	}  
 
    /* RCPT TO: Receive request */
 	if(recv(sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
 		printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-		return -1;
+		return 1;
 	} 
    printf("RCPT TO REQ: %s\n", (char *) &ewaClientRCPTTO);
    /* TODO: Validation of RCPT TO*/
@@ -287,7 +299,7 @@ int main(int iArgC, char **arrpszArgV){
 	if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
 		printf("%s: SEND FAILED - errcode %d", szServerID, errno);
       CloseSockets(&sockServer, &sockClient);
-      return -1;
+      return 1;
 	}  
 
    /* ---DATA PROTOCOL START--- */
@@ -301,7 +313,7 @@ int main(int iArgC, char **arrpszArgV){
       if(recv(sockClient, &ewaClientDATACMD, sizeof(ewaClientDATACMD), 0) < 0){
          printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
          CloseSockets(&sockServer, &sockClient);
-         return -1;
+         return 1;
       } 
       printf("DATACMD REQ: %s\n", (char *) &ewaClientDATACMD);
 
@@ -334,6 +346,7 @@ int main(int iArgC, char **arrpszArgV){
          exit(1);
          return 1;
       }
+
       /* DATA: if command is not DATA, we give an error right away */
       if(strcmp(szCommand, "DATA") != 0){
          HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID COMMAND");
@@ -374,12 +387,12 @@ int main(int iArgC, char **arrpszArgV){
       szFileExtension[4] = '\0';
       iValidFileExtension = strncmp(szFileExtension, ".eml", 4);
 
-      if(iIllegalCharFound != -1){
+      if(iIllegalCharFound != 0){
          HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "DATACMD - ILLEGAL CHARACTER");
          return 1;
       }
 
-      if(iValidFileExtension == 0){
+      if(iValidFileExtension != 0){
          HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "DATACMD - INVALID FILETYPE");
          return 1;
       }
@@ -516,7 +529,8 @@ int main(int iArgC, char **arrpszArgV){
 
             /* Once we've checked the buffer, we write to the file
              * We reduce the read count for every time we write data to file */
-            iBytesToRead -= fprintf(fpClientFile, pszBuffer, "%c");
+            pszBuffer[iBufferSize];
+            iBytesToRead -= fprintf(fpClientFile, pszBuffer, "%s");
             if(iEOF != 1) memset(pszBuffer, 0, iBufferSize);
 
             /* If we hit EOF during the parse we exit the loop here. But first we let the client know we are done */
@@ -543,7 +557,7 @@ int main(int iArgC, char **arrpszArgV){
                break;
 
             case 1: 
-               CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK: WRITE COMPLETE");
+               CreateServerReply(&ewaServerREPLY, MSG_250, "DATAFILE OK: WRITE COMPLETE");
                break;
          }
 
@@ -573,9 +587,9 @@ int main(int iArgC, char **arrpszArgV){
          } 
 
          /* DATAFILE: Verify and reenter loop */
-         iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_READ);
+         iBytesToRead = VerifyHeader(ewaClientFILEHEAD, MAX_FILE);
          if(iBytesToRead < 0){
-            HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "UNKNOWN ERROR");
+            HandleServerError(&sockServer, &sockClient, &ewaServerREPLY, "INVALID HEADER OR SIZE");
             return 1;
          }
 
@@ -585,7 +599,7 @@ int main(int iArgC, char **arrpszArgV){
             fclose(fpClientFile);
             fpClientFile = NULL;
             CloseSockets(&sockServer, &sockClient);
-            exit(1);
+            return 1;
          }/*-> NEW HEADER VERIFIED. RESTARTING DATAFILE LOOP */
       }/*-> DATAFILE LOOP */
    }/*-> DATACMD LOOP */
