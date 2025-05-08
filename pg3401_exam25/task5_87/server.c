@@ -788,13 +788,12 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
          for(i = 0; i < iBufferSize; i++){
 
             puts("MOVING WINDOW");
+            printf("RAW READ %c", ewaClientFILE->acFileContent[iTotalBytesChecked + i]);
+            printf("CURRENT BYTE -> %d\n", iTotalBytesChecked + i);
             /* Create a three byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
-            printf("2 -> %d \n", iTotalBytesChecked + i);
+            if(i >= 2) carrWindow[0] = carrWindow[1];
+            if(i >= 1) carrWindow[1] = carrWindow[2];
             carrWindow[2] = ewaClientFILE->acFileContent[iTotalBytesChecked + i];
-            puts("1");
-            if(i >= 1) carrWindow[1] = ewaClientFILE->acFileContent[iTotalBytesChecked + i - 1];
-            puts("0");
-            if(i >= 2) carrWindow[0] = ewaClientFILE->acFileContent[iTotalBytesChecked + i - 2];
 
             /* End with a null terminator so we can compare as string */
             carrWindow[3] = '\0';
@@ -811,7 +810,7 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
 
             /* If EOF isn't hit, we write one byte to the buffer
              * We write the leftmost entry in the window */
-            pszBuffer[i] = carrWindow[3];
+            pszBuffer[i] = carrWindow[2];
          }
 
          free(carrWindow);
