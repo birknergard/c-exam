@@ -5,10 +5,6 @@ CC = gcc
 CFLAGS = -O2
 CFLAGS += -I $(INCLDIR)
 CFLAGS += -std=c89
-
-# Adds socket library
-CFLAGS += -lsocket
-# Adds the math.h library
 CFLAGS += -lm
 
 CFLAGS += -Wall
@@ -25,7 +21,7 @@ $(OBJDIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 server: $(OBJS)
-	gcc -o $@ $^ $(CFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
 clean:

@@ -1148,3 +1148,6 @@
 0004|00-E6C02300|07.05 09:18:32|Debug: Verifying integrity of 'ewa_exam_v25_i64' (ewa_exam.c:2528)
 0005|33-E6C02395|07.05 09:18:32|Debug: EWA tool launched, Session ID = '33-E6C02395' (ewa_exam.c:2607)
 0006|33-E6C02395|07.05 09:18:34|Error: recv failed with 104 (ewa_exam.c:1849)
+0007|33-E6C02395|08.05 06:20:30|Debug: EWA tool exiting successfully... (ewa_exam.c:2764)
+0001|00-----0000|08.05 06:20:32|Debug: EWA tool launched starting... (ewa_exam.c:2339)
+0002|00-----0000|08.05 06:20:32|Debug: argv[0] = './ewa_exam_v25_i64' (ewa_exam.c:2341)
