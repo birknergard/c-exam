@@ -28,11 +28,20 @@ typedef struct {
    char acHardZero[1]; /* Set to binary 0, ensures the received data is a zero-terminated string */
 } EWA_PROTOCOL;
 
+/* 
+ * Runs HELO protocol
+ * */
+int RunProtocolHELO(int *sockClient);
 
+int RunProtocolMAILFROM(int *sockClient);
+
+int RunProtocolRCPTTO(int *sockClient);
+
+int RunProtocolDATA(int *sockClient, void *ewaCMD);
 /* 
  * Shorthand function for handling server errors
  * */
-int HandleServerError(int *sockServer, int *sockClient, EWA_PROTOCOL *ewaStruct, char szMessage[]);
+int HandleServerError(int *sockClient, EWA_PROTOCOL *ewaStruct, char szCode[], char szResponse[]);
 
 /*
 * Function for creating SERVER REPLY struct for convenience.
@@ -44,7 +53,7 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
 /*
  * Verifies that the header is correct
  * */
-int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit);
+int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit, int iLog);
 
 /*
  * Calculates the raw ip address number as a long int. Returns -1 if invalid string 
