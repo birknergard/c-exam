@@ -4,10 +4,10 @@ INCLDIR = ./include
 CC = gcc
 CFLAGS = -O2
 CFLAGS += -I $(INCLDIR)
-CFLAGS += -std=c99
+CFLAGS += -std=c89
 CFLAGS += -lm
 
-# CFLAGS += -Wall
+#CFLAGS += -Wall
 
 OBJDIR = obj
 

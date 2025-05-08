@@ -30,7 +30,6 @@ int main(int iArgC, char **arrpszArgV){
    struct sockaddr_in saServerAddress = {0};
    int iNewAddressLength;
 
-   char szServerID[MAX_ID] = {0};  
    int iPortNumber = -1;
    long int iServerAddress = 0x7F000001;
 
@@ -45,16 +44,11 @@ int main(int iArgC, char **arrpszArgV){
    /* Declaring boundaries */
    int iMaxCMD = 100;
 
-   /* Verification variables */
-   int iIllegalCharFound;
-   int iValidFileExtension;
-   
    /* Reply structs */
    EWA_PROTOCOL ewaServerACCEPT = {0};
    EWA_PROTOCOL ewaServerREPLY = {0};
 
    /* Request structs (from client) */
-   struct EWA_EXAM25_TASK5_PROTOCOL_CLOSECOMMAND ewaClientCLOSE = {0};
    struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientCMD = {0};
 
    /* Checking if arguments were provided */
@@ -69,8 +63,9 @@ int main(int iArgC, char **arrpszArgV){
       iPortNumber = atoi(arrpszArgV[2]);
    }
 
+   char szServerID[MAX_ID] = {0};  
    if(strcmp(arrpszArgV[3], "-id") == 0){
-      strncpy(szServerID, arrpszArgV[4], MAX_ID);
+      memcpy(szServerID, arrpszArgV[4], MAX_ID - 1);
       szServerID[strlen(szServerID)] = '\0';
    }
 
@@ -175,7 +170,6 @@ int main(int iArgC, char **arrpszArgV){
          iStatus = -1;
          continue;
       } 
-      printf("DATACMD REQ: %s\n", (char *) &ewaClientCMD);
 
 
       if(VerifyHeader(ewaClientCMD.stHead, 64, 0) <= 0){
@@ -235,27 +229,20 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
 	va_list vaArgs;
 
    /* Reset struct */
-   memset(ewaStruct, 0, sizeof(64));
+   memset(ewaStruct, 0, sizeof(EWA_HEAD));
 
    /* Add magic number */
-   strncpy(ewaStruct->stHead.acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
+   memcpy(ewaStruct->stHead.acMagicNumber, EWA_EXAM25_TASK5_PROTOCOL_MAGIC, 3);
 
    /* Need snprint for converting sizeof data to ascii with padding, but it adds a null terminator to the string when used.
     * Therefore we first create the string we want and then copy everything but the null terminator to the struct 
     * Also pad it to four bytes of ASCII by adding leading zeroes */
 
-   char szDataSizeBfr[5];
-   snprintf(szDataSizeBfr, 5, "%04d");
-   /* Removing NULL terminator to be sure */
-	szDataSizeBfr[4] = 'X';
-
-   strncpy(ewaStruct->stHead.acDataSize, szDataSizeBfr, 4);
    ewaStruct->stHead.acDelimeter[0] =  '|';
 
-   strncpy(ewaStruct->acStatusCode, szStatusCode, 3);
+   memcpy(ewaStruct->acStatusCode, szStatusCode, 3);
 
    ewaStruct->acHardSpace[0] = ' ';
-
 
 	char szBuffer[SERVER_MSGSIZE];
    memset(szBuffer, 0, SERVER_MSGSIZE);
@@ -269,8 +256,14 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
 	szBuffer[strcspn(szBuffer, "\0")] = 0;
 
    /* Copies the given size argument x bytes of the created string into the struct. */
-   strncpy(ewaStruct->acFormattedString, szBuffer, SERVER_MSGSIZE);
+   memcpy(ewaStruct->acFormattedString, szBuffer, SERVER_MSGSIZE);
    ewaStruct->acHardZero[0] = '\0';
+
+
+   char szDataSizeBfr[5];
+   snprintf(szDataSizeBfr, 5, "%04ld", sizeof(*ewaStruct));
+
+   memcpy(ewaStruct->stHead.acDataSize, szDataSizeBfr, 4);
 
    ewaStruct = NULL;
 
@@ -434,9 +427,9 @@ void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
 
       /* Creating string */
       if(j != 4)
-         snprintf(szBuffer, 5, "%d.", byShiftedAddr);
+         sprintf(szBuffer, "%d.", byShiftedAddr);
       else 
-         snprintf(szBuffer, 5, "%d", byShiftedAddr);
+         snprintf(szBuffer, 4, "%d", byShiftedAddr);
 
       /*printf("%d -> IPSTRING=%s\n", j, szBuffer);*/
 
@@ -462,7 +455,7 @@ int RunProtocolHELO(int *sockClient){
 		return -1;
 	} 
    /* Print to terminal */
-   printf("HELO REQ: %s\n", (char *) &ewaClientHELO);
+   printf("HELO: %s\n", (char *) &ewaClientHELO);
 
    /* HELO: Validate client request */
    /* CHECKLIST FOR VALIDATION:
@@ -485,27 +478,23 @@ int RunProtocolHELO(int *sockClient){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "INVALID COMMAND. \"HELO\" EXPECTED");
       return 1;
    } 
-   printf("-> OK\n");
 
    /* NOT ASCI 0x20 HARDSPACE */
    if(ewaClientHELO.acHardSpace[0] != 0x20 ){ /* NOT ASCI value for space */
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "INVALID FORMAT");
       return 1;
    }
-   printf("-> OK\n");
 
    /* STRING SIZE OUT OF BOUNDS */
    if(sizeof(ewaClientHELO.acFormattedString) > 51 || sizeof(ewaClientHELO.acFormattedString) < 0){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "INVALID REQUEST STRING SIZE");
       return 1;
    }
-   printf("-> OK\n");
 
    if(ewaClientHELO.acHardZero[0] != '\0' /* Zero terminator */){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "MISSING ZERO TERMINATOR");
       return -1;
    }
-   printf("-> OK\n");
 
    /* Initialize local variables for client data */
    liClientIP = 0;
@@ -553,7 +542,6 @@ int RunProtocolHELO(int *sockClient){
 
    /* HELO: Send response to client */
 	if(send(*sockClient, &ewaServerHELO, 64, 0) < 0){
-		printf("%s: SEND FAILED - errcode %d", errno);
       return -1;
 	}  
    
@@ -569,7 +557,7 @@ int RunProtocolMAILFROM(int *sockClient){
 	if(recv(*sockClient, &ewaClientMAILFROM, sizeof(ewaClientMAILFROM), 0) < 0){
 		return -1;
 	} 
-   printf("MAIL FROM REQ: %s\n", (char *) &ewaClientMAILFROM);
+   printf("MAIL FROM: %s\n", (char *) &ewaClientMAILFROM);
    /* TODO: Validation of MAIL FROM TO*/
    
 
@@ -591,7 +579,7 @@ int RunProtocolRCPTTO(int *sockClient){
 	if(recv(*sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
 		return -1;
 	} 
-   printf("RCPT TO REQ: %s\n", (char *) &ewaClientRCPTTO);
+   printf("RCPT TO: %s\n", (char *) &ewaClientRCPTTO);
    /* TODO: Validation of RCPT TO*/
 
 
@@ -613,12 +601,7 @@ int RunProtocolRCPTTO(int *sockClient){
  * -4 = FILE ERROR
  * */
 int RunProtocolDATA(int *sockClient, void *ewaCMD){
-   int iMaxDATA = 500;
    int iStatus = 0;
-
-   /* Datafile protocol variables   */
-   int iFileNameBytesToRead;
-   int iTotalBytesRemaining = 0;
 
    EWA_PROTOCOL ewaServerREPLY = {0};
 
@@ -689,28 +672,13 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
 
    puts("CHECKING INITIAL HEADER\n");
    /* FILE: Verify the head first */
-   if(recv(*sockClient, &ewaClientFILEHEAD, sizeof(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER), MSG_PEEK) < 0){
-      return -2;
-   } 
 
-   /* DATAFILE: Verify first header before loop entry */
-   iTotalBytesRemaining = VerifyHeader(ewaClientFILEHEAD, MAX_READ, 1);
-   if(iTotalBytesRemaining < 0) {
-      return HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "DATAFILE - REQUEST DENIED");
-   }
-
-   puts("ACCEPTING INITIAL DATA\n");
-   CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATAFILE ACCEPT - READY");
-   if(send(*sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
-      return -1;
-   }
-
+   int iTotalBytesRemaining;
    /* If there's no problems with initial header, start receiving data */
 
    /* Declaring variables for loop */
-   char *pszBuffer = NULL;
    int iBufferSize = 0;
-   int iTotalBytesChecked = 0;
+   int iTotalBytesSaved = 0;
    int iEOF = 0;
 
    puts("STARTING DATAFILE PROTOCOL\n");
@@ -721,27 +689,37 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
       /* Exits the datafile protocol, returning the errorcode */
       if(iStatus != 0) return iStatus;
 
-      /* DATAFILE: Allocates struct based on header size (NOTE: Excluding header */
-      ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iTotalBytesRemaining);
+
+      /* DATAFILE: PEEK new header */
+      if(recv(*sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), MSG_PEEK) < 0){
+         iStatus = -2;
+         continue;
+      } 
+
+      /* DATAFILE: Verify and read byte count */
+      int iResponseSize = VerifyHeader(ewaClientFILEHEAD, MAX_FILE, 1);
+      if(iResponseSize < 0){
+         iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "INVALID HEADER OR SIZE");
+         continue;
+      }
+
+
+      /* Size of data */
+      int iTotalBytesRemaining = iResponseSize - sizeof(EWA_HEAD);
+
+      /* DATAFILE: Allocates struct based on header size */
+      ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(sizeof(EWA_HEAD) + iTotalBytesRemaining);
       if(ewaClientFILE == NULL){
          iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "DATAFILE INVALID SIZE");
          continue;
       }
 
-      puts("HEADER VERIFIED - RECIEVING DATA");
+      puts("HEADER VERIFIED - RECEIVING DATA");
       /* DATAFILE: Receives data struct based on header size */
-      if(recv(*sockClient, &ewaClientFILE, iTotalBytesRemaining, MSG_WAITALL) < 0){
+      if(recv(*sockClient, ewaClientFILE, iTotalBytesRemaining + sizeof(EWA_HEAD), MSG_WAITALL) < 0){
          iStatus = -1;
          continue;
       } 
-
-      /* DATAFILE: Make sure data size matches header by checking for null terminator*//*
-      if(ewaClientFILE->acFileContent[iTotalBytesRemaining - 8] != '\0'){
-         puts("ERROR: BODY DOES NOT MATCH SIZE OF HEADER");
-         iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "BODY DOES NOT MATCH SIZE OF HEADER");
-         continue;
-      }
-      */
 
       printf("FILE IS %d BYTES\n", iTotalBytesRemaining);
       /* ----DATAFILE READ ENTRY----*/
@@ -756,15 +734,15 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
 
          /* Until the bytes to read is smaller than max read, where we read the remainig bytes */
          } else {
-            /* Make one byte bigger, so we can safely zero terminate the string */
-            iBufferSize = iTotalBytesRemaining + 1;
+            iBufferSize = iTotalBytesRemaining;
          }
 
-         printf("DATAFILE: Reading segment of size %d - %d Remaining ...\n", iBufferSize - 1, iTotalBytesRemaining);
+         printf("DATAFILE: Reading segment of size %d - %d Remaining ...\n", iBufferSize, iTotalBytesRemaining);
 
 
          /* Allocate the buffer */
-         pszBuffer = (char *) malloc(iBufferSize);
+         char *pszBuffer = NULL;
+         pszBuffer = (char *) malloc(iBufferSize + 1); /* One extra byte for null termination */
          if(pszBuffer == NULL){
             free(ewaClientFILE);
             ewaClientFILE = NULL;
@@ -772,53 +750,83 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
             iStatus = -3;
             continue;
          }
-         memset(pszBuffer, 0, iBufferSize);
+         memset(pszBuffer, '0', iBufferSize);
 
          /* Write "iBufferSize" count of */
-         char *carrWindow = (char *) malloc(4);
-         if(carrWindow == NULL){
-            return -3;
-         }
-         memset(carrWindow, 20, 4);
+         char carrEOFTarget[] = {'\r','\n','\r','\n','\r','\n'};
+         char carrWindow[8];
+         memset(carrWindow, '0', 8);
+
+         /* End with a null terminator so for debugging */
+
          puts("ALLOCATED BUFFER AND WINDOW");
 
          /* Checks entire buffer */
-         int i;
+         int i, iCurrent;
          puts("STARTING READ");
          for(i = 0; i < iBufferSize; i++){
+            iCurrent = iTotalBytesSaved + i;
 
-            puts("MOVING WINDOW");
-            printf("RAW READ %c", ewaClientFILE->acFileContent[iTotalBytesChecked + i]);
-            printf("CURRENT BYTE -> %d\n", iTotalBytesChecked + i);
-            /* Create a three byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
-            if(i >= 2) carrWindow[0] = carrWindow[1];
-            if(i >= 1) carrWindow[1] = carrWindow[2];
-            carrWindow[2] = ewaClientFILE->acFileContent[iTotalBytesChecked + i];
+            printf("-> %d WINDOW=[", iCurrent);
+            /* Create a 7 byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
+            carrWindow[6] = ewaClientFILE->acFileContent[iCurrent];
+            printf("%c ", carrWindow[6]);
 
-            /* End with a null terminator so we can compare as string */
-            carrWindow[3] = '\0';
-            printf("DATAFILE: %d WINDOW=%s\n", iTotalBytesChecked + i, carrWindow);
-
-            /* Reads from right to left, starting at the third index.
-             * Only checks after iteration 2 to prevent reading empty indexes (0, 1) */
-            if(strncmp(carrWindow, "\n.\n", 3) == 0 && i >= 2){
-               iEOF = 1;
-
-               /* We break here so the buffer ends at . */
-               break;
+            if(i >= 1){
+               carrWindow[5] = carrWindow[6];
+               printf("%c ", carrWindow[5]);
             }
 
+            if(i >= 2){
+               carrWindow[4] = carrWindow[5];
+               printf("%c ", carrWindow[4]);
+            }
+
+            if(i >= 3){
+               carrWindow[3] = carrWindow[4];
+               printf("%c ", carrWindow[3]);
+            }
+
+            if(i >= 4){
+               carrWindow[2] = carrWindow[3];
+               printf("%c ", carrWindow[2]);
+            }
+
+            if(i >= 5){
+               carrWindow[1] = carrWindow[2];
+               printf("%c ", carrWindow[1]);
+            }
+
+            if(i >= 6){
+               carrWindow[0] = carrWindow[1];
+               printf("%c ", carrWindow[0]);
+            }
+
+            printf("] END\n");
+            /* Reads from right to left, starting at the third index.
+             * Only checks after iteration 2 to prevent reading empty indexes (0, 1) */
+
+            if(i >= 6){
+               puts("CHECK EOF");
+               if(memcmp(carrWindow, carrEOFTarget, 6) == 0){
+                  printf("EOF REACHED\n");
+                  iEOF = 1;
+
+                  /* We break here so the buffer ends at */
+                  break;
+               }
+            }
+
+            puts("WRITE TO BUFFER");
             /* If EOF isn't hit, we write one byte to the buffer
-             * We write the leftmost entry in the window */
-            pszBuffer[i] = carrWindow[2];
+             * We write the rightmost entry in the window */
+            pszBuffer[i] = carrWindow[6];
          }
 
-         free(carrWindow);
-         carrWindow = NULL;
          /* Once we've checked the buffer, we write to the file
           * We reduce the read count for every time we write data to file */
          if(iBufferSize < MAX_READ){
-            pszBuffer[iBufferSize] = '\0';
+            pszBuffer[iBufferSize + 1] = '\0';
          }
 
          /* DATAFILE: Open the file in (a)ppend mode (new data is appended to the end of the file) */
@@ -833,7 +841,7 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
          fpClientFile = NULL;
 
          /* Track how many bytes were read */
-         iTotalBytesChecked += iBufferSize;
+         iTotalBytesSaved += iBufferSize;
 
          /* Free the buffer */
          free(pszBuffer);
@@ -872,24 +880,6 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
          continue; /* Returns to DATACMD/QUIT LOOP */
       }
          
-      /* DATAFILE: Receive new header */
-      if(recv(*sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), MSG_PEEK) < 0){
-         iStatus = -1;
-         continue;
-      } 
-
-      /* DATAFILE: Verify and reenter loop */
-      iTotalBytesRemaining = VerifyHeader(ewaClientFILEHEAD, MAX_FILE, 1);
-      if(iTotalBytesRemaining < 0){
-         iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "INVALID HEADER OR SIZE");
-         continue;
-      }
-
-      CreateServerReply(&ewaServerREPLY, MSG_OK, "FILEDATA ACCEPTED - READY");
-      if(send(*sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
-         iStatus = -1;
-         continue;
-      }/*-> NEW HEADER VERIFIED. RESTARTING DATAFILE LOOP */
    }/*-> DATA LOOP */
 
    return 0;
