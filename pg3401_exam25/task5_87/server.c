@@ -141,61 +141,68 @@ int main(int iArgC, char **arrpszArgV){
 
    /* TODO: Add error messages exit conditions */
    RunProtocolHELO(&sockClient);
+   puts("");
 
    RunProtocolMAILFROM(&sockClient);
+   puts("");
 
    RunProtocolRCPTTO(&sockClient);
+   puts("");
 
    /* ---CMD PROTOCOL START--- */
-   /* From here on the program loops until the client sends a close request or an error occurs.
-    * Set upper boundary to three while developing. */
-   int k = 0;
-   while(++k <= iMaxCMD){
+   /* From here on the program loops until the client sends a close request or an error occurs. */
+   int n = 0;
+   while(++n < 5){
+
+      /* Hold for a moment */
+      sleep(1);
 
       /* EXIT: PROGRAM EXIT */
-      if(iStatus < 0 || iExiting == 1){
+      if(iExiting == 1){
          break;
       }
 
-      /* Sets limit on CMDs */
-      if(k == iMaxCMD){
-         printf("HIT MAX DATA LOOPS");
-         break;
+      if(iStatus > 0){
+         /* Receiving to prevent hanging */
+         if(recv(sockClient, &ewaClientCMD, sizeof(EWA_PROTOCOL), 0) < 0){
+            iStatus = -2;
+         } 
       }
 
       /* DATACMD/CLOSE: Retrieve as data cmd at first, 
        * but checking command for actual protocol */
-      if(recv(sockClient, &ewaClientCMD, sizeof(ewaClientCMD), 0) < 0){
-         printf("%s: Receive failed! errcode - %d\n", szServerID, errno);
-         iStatus = -1;
+      puts("PEEKING NEW COMMAND ...");
+      if(recv(sockClient, &ewaClientCMD, sizeof(EWA_PROTOCOL), MSG_PEEK) < 0){
+         printf("Receive error");
+         iStatus = -2;
          continue;
       } 
 
-
-      if(VerifyHeader(ewaClientCMD.stHead, 64, 0) <= 0){
-         HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, "DENIED HEADER");
-         iStatus = 1;
-         continue;
-      }
-
       /* Storing command in this buffer */
       char szCommand[5] = {0}; 
-      snprintf(szCommand, 5, "%s", ewaClientCMD.acCommand);
+      strncpy(szCommand, (char*) &(ewaClientCMD.acCommand), 4);
+      szCommand[4] = '\0';
 
+      if(n > 0){
+         printf("%s", &(ewaClientCMD));
+      }
 
       /* QUIT: If the command is quit, we exit the program completely */
+      printf("RECEIVED NEW COMMAND -> %s\n", szCommand);
+
       if(strcmp(szCommand, "QUIT") == 0){
          CreateServerReply(&ewaServerREPLY, MSG_EXIT, "QUIT RECEIVED: EXITING SERVER");
          if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
             iStatus = -1;
          }
-         printf("EXITING SERVER\n");
+         iExiting = 1;
          continue;
       }
 
       /* DATA: If command is data we run the data protocol */
       if(strcmp(szCommand, "DATA") == 0){
-         iStatus = RunProtocolDATA(&sockClient, &ewaClientCMD);
+         puts("RECEIVED CMD -> DATA");
+         iStatus = RunProtocolDATA(&sockClient);
 
          char szStatus[20] = {0};
          switch(iStatus) {
@@ -208,12 +215,20 @@ int main(int iArgC, char **arrpszArgV){
 
             default: strcpy(szStatus, "UNKNOWN ERROR\0"); break;
          }
-         printf("PROTOCOL DATA -> %s", szStatus);
+         printf("\nPROTOCOL DATA -> %s\n\n", szStatus);
 
-      } else {
-         iStatus = HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, "INVALID COMMAND");
+
+         if(iStatus < 0){
+            HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, szStatus);
+         }
          continue;
       }
+
+      /* If we reach the command is invalid */
+      printf("INVALID COMMAND %s\n", szCommand);
+      HandleServerError(&sockClient, &ewaServerREPLY, MSG_EXIT, "INVALID COMMAND");
+      iStatus = 1;
+      iExiting = 1;
    }/*-> COMMAND LOOP */
 
    /* Cleanup and exit */
@@ -277,33 +292,38 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
 int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit, int iPrint){
    /* Declaring variables */
    int iSize = 0, i;
-   char szBuf[4];
-   memset(szBuf, 0, 4);
 
    /* Check structure */ 
-   if(strncmp(stHead.acMagicNumber, "EWP", 3) != 0) return -1;
+   if(strncmp(stHead.acMagicNumber, "EWP", 3) != 0) return 1;
    if(iPrint == 1) printf("-> MAGIC OK");
 
    /* Checks if every byte is a digit. Only reads ever reads 4 digits. */
    for(i = 0; i < 4; i++){
       if(isdigit(stHead.acDataSize[i]) == 0){
-         return -1;
+         return 1;
       }
    }
    if(iPrint == 1) printf("DIGITS -> OK");
 
    /* Ensures only 4 digits are read */
+   char szBuf[5];
+   memset(szBuf, 0, 5);
    strncpy(szBuf, stHead.acDataSize, 4);
+   szBuf[4] = '\0';
 
    /* Convert to int */
    iSize = atoi(szBuf);
 
    /* Check if value exceeds max (given as argument) */
    printf("Checking WITHIN BYTELIMIT;");
-   if(iSize > iByteLimit) return -1;
+   if(iSize > iByteLimit) {
+      printf("%d is outside of byte limit %d\n", iSize, iByteLimit);
+      return 1;
+   }
+
    if(iPrint == 1) printf("DIGITS -> OK");
 
-   if(stHead.acDelimeter[0] != '|') return -1;
+   if(stHead.acDelimeter[0] != '|') return 1;
    if(iPrint == 1) printf("DIGITS -> OK");
 
    /* All checks passed */
@@ -600,16 +620,30 @@ int RunProtocolRCPTTO(int *sockClient){
  * -3 = MALLOC ERROR
  * -4 = FILE ERROR
  * */
-int RunProtocolDATA(int *sockClient, void *ewaCMD){
+int RunProtocolDATA(int *sockClient){
    int iStatus = 0;
+   int iRestarting = 0;
 
    EWA_PROTOCOL ewaServerREPLY = {0};
 
-   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientDATACMD = 
-      *(struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD *) ewaCMD;
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATACMD ewaClientDATACMD = {0};
 
-   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER ewaClientFILEHEAD = {0}; 
-   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *ewaClientFILE = NULL; /* Pointer because data is dynamic*/
+   struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER ewaClientDATAHEAD = {0}; 
+   struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *ewaClientDATA = NULL; /* Pointer because data is dynamic*/
+
+   /* Receive DATACMD request. Since we check the header before this function
+    * is invoked we don't have to do that here */
+   if(recv(*sockClient, &ewaClientDATACMD, sizeof(EWA_PROTOCOL), 0) < 0){
+      return -2;
+   } 
+
+   puts("VERIFYING HEADER");
+   int dbHeader;
+   printf("RAW %s\n", (char*) &ewaClientDATACMD);
+   if(dbHeader = VerifyHeader(ewaClientDATACMD.stHead, 64, 1) <= 0){
+      printf("invalid header %d", dbHeader);
+      return 1;
+   }
 
    puts("VERIFYING FILENAME\n");
    /* Creating zero terminated buffer, to retrieve strlen
@@ -648,13 +682,10 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
    int iValidFileExtension = strncmp(szFileExtension, ".eml", 4);
 
    if(iIllegalCharFound != 0){
-      if(HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "DATACMD - ILLEGAL CHARACTER") > 0)
-         return -1;
-      else return 1;
+      return 1;
    }
 
    if(iValidFileExtension != 0){
-      if(HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "DATACMD - INVALID FILETYPE") > 0);
       return 1;
    }
 
@@ -670,9 +701,6 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
       return -1;
    }  
 
-   puts("CHECKING INITIAL HEADER\n");
-   /* FILE: Verify the head first */
-
    int iTotalBytesRemaining;
    /* If there's no problems with initial header, start receiving data */
 
@@ -682,51 +710,68 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
    int iEOF = 0;
 
    puts("STARTING DATAFILE PROTOCOL\n");
-
    /*----DATAFILE RECEIVE LOOP----*/
    while(1){ 
 
       /* Exits the datafile protocol, returning the errorcode */
-      if(iStatus != 0) return iStatus;
+      if(iRestarting == 1 || iStatus != 0){
+         printf("BACK TO CMD: STATUS %d", iStatus);
+         CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK - WRITE COMPLETE");
+         break;
+      } 
 
+      /* DATAFILE: If iEOF was hit we exit to start of CMD */
+      if(iEOF == 1){
+         iRestarting = 1;
+         continue;
+      } else {
+         CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATAFILE OK - READY");
+      }
+
+      /* DATAFILE: Send message with code defined above */
+      if(send(*sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
+         iStatus = -1;
+         continue;
+      }
 
       /* DATAFILE: PEEK new header */
-      if(recv(*sockClient, &ewaClientFILEHEAD, sizeof(EWA_HEAD), MSG_PEEK) < 0){
+      if(recv(*sockClient, &ewaClientDATAHEAD, sizeof(EWA_HEAD), MSG_PEEK) < 0){
          iStatus = -2;
          continue;
       } 
 
       /* DATAFILE: Verify and read byte count */
-      int iResponseSize = VerifyHeader(ewaClientFILEHEAD, MAX_FILE, 1);
-      if(iResponseSize < 0){
-         iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "INVALID HEADER OR SIZE");
+      int iRequestSize = VerifyHeader(ewaClientDATAHEAD, MAX_FILE, 1) + sizeof(EWA_HEAD);
+      if(iRequestSize < 0){
+         printf("REQUEST DATA CHECK FAILED: %d\n", iRequestSize);
+         iStatus = 1;
          continue;
       }
 
-
       /* Size of data */
-      int iTotalBytesRemaining = iResponseSize - sizeof(EWA_HEAD);
+      int iTotalBytesRemaining = iRequestSize - sizeof(EWA_HEAD);
 
       /* DATAFILE: Allocates struct based on header size */
-      ewaClientFILE = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(sizeof(EWA_HEAD) + iTotalBytesRemaining);
-      if(ewaClientFILE == NULL){
-         iStatus = HandleServerError(sockClient, &ewaServerREPLY, MSG_ERROR, "DATAFILE INVALID SIZE");
+      ewaClientDATA = (struct EWA_EXAM25_TASK5_PROTOCOL_CLIENTDATAFILE *) malloc(iRequestSize);
+      if(ewaClientDATA == NULL){
+         iStatus = -3;
          continue;
       }
 
       puts("HEADER VERIFIED - RECEIVING DATA");
       /* DATAFILE: Receives data struct based on header size */
-      if(recv(*sockClient, ewaClientFILE, iTotalBytesRemaining + sizeof(EWA_HEAD), MSG_WAITALL) < 0){
-         iStatus = -1;
+      if(recv(*sockClient, ewaClientDATA, iRequestSize, MSG_WAITALL) < 0){
+         free(ewaClientDATA);
+         iStatus = -2;
          continue;
       } 
 
       printf("FILE IS %d BYTES\n", iTotalBytesRemaining);
       /* ----DATAFILE READ ENTRY----*/
-      while(iTotalBytesRemaining > 0){
+      while(iTotalBytesRemaining > iTotalBytesSaved){
 
          /* Exits datafile read if error occured */
-         if(iStatus != 0) break;
+         if(iRestarting == 1 || iStatus != 0) break;
 
          /* If FileContent size is greater than MAX_READ, we read MAX_READ at a time */
          if(iTotalBytesRemaining > MAX_READ){
@@ -744,143 +789,98 @@ int RunProtocolDATA(int *sockClient, void *ewaCMD){
          char *pszBuffer = NULL;
          pszBuffer = (char *) malloc(iBufferSize + 1); /* One extra byte for null termination */
          if(pszBuffer == NULL){
-            free(ewaClientFILE);
-            ewaClientFILE = NULL;
+            free(ewaClientDATA);
+            ewaClientDATA = NULL;
 
             iStatus = -3;
             continue;
          }
-         memset(pszBuffer, '0', iBufferSize);
+         memset(pszBuffer, 0, iBufferSize);
 
          /* Write "iBufferSize" count of */
-         char carrEOFTarget[] = {'\r','\n','\r','\n','\r','\n'};
+         char carrEOFTarget1[] = {'\n','\n','.','\n'};
+         char carrEOFTarget2[] = {'\r','\n','\r','\n','.','\r','\n'};
          char carrWindow[8];
          memset(carrWindow, '0', 8);
 
          /* End with a null terminator so for debugging */
 
-         puts("ALLOCATED BUFFER AND WINDOW");
-
          /* Checks entire buffer */
          int i, iCurrent;
-         puts("STARTING READ");
          for(i = 0; i < iBufferSize; i++){
             iCurrent = iTotalBytesSaved + i;
 
-            printf("-> %d WINDOW=[", iCurrent);
             /* Create a 7 byte "window" at a time. That way we can check for the "\n.\n" exit pattern */
-            carrWindow[6] = ewaClientFILE->acFileContent[iCurrent];
-            printf("%c ", carrWindow[6]);
-
-            if(i >= 1){
-               carrWindow[5] = carrWindow[6];
-               printf("%c ", carrWindow[5]);
-            }
-
-            if(i >= 2){
-               carrWindow[4] = carrWindow[5];
-               printf("%c ", carrWindow[4]);
-            }
-
-            if(i >= 3){
-               carrWindow[3] = carrWindow[4];
-               printf("%c ", carrWindow[3]);
-            }
-
-            if(i >= 4){
-               carrWindow[2] = carrWindow[3];
-               printf("%c ", carrWindow[2]);
-            }
-
-            if(i >= 5){
-               carrWindow[1] = carrWindow[2];
-               printf("%c ", carrWindow[1]);
-            }
-
-            if(i >= 6){
-               carrWindow[0] = carrWindow[1];
-               printf("%c ", carrWindow[0]);
-            }
-
-            printf("] END\n");
             /* Reads from right to left, starting at the third index.
-             * Only checks after iteration 2 to prevent reading empty indexes (0, 1) */
-
-            if(i >= 6){
-               puts("CHECK EOF");
-               if(memcmp(carrWindow, carrEOFTarget, 6) == 0){
-                  printf("EOF REACHED\n");
-                  iEOF = 1;
-
-                  /* We break here so the buffer ends at */
-                  break;
-               }
+            /* Shift every element down one index */
+            int j;
+            for(j = 0; j < 6; j++){
+               carrWindow[j] = carrWindow[j + 1];
             }
+            /* New element goes in rightmost index */
+            carrWindow[6] = ewaClientDATA->acFileContent[iCurrent];
 
-            puts("WRITE TO BUFFER");
-            /* If EOF isn't hit, we write one byte to the buffer
-             * We write the rightmost entry in the window */
+            printf("-> %d WINDOW=[", iCurrent);
+            for(j = 0; j < 7; j++){
+               if(carrWindow[j] == '\r') printf("CR");
+               if(carrWindow[j] == '\n') printf("LF");
+               else printf("%c", carrWindow[j]);
+            }
+            puts("] END");
+
             pszBuffer[i] = carrWindow[6];
+
+            /* Checking for \n\n.\n */
+            if(i >= 4 && memcmp(carrWindow, carrEOFTarget1, 4) == 0){
+               printf("EOF(1) REACHED\n");
+               iEOF = 1;
+               break;
+            }
+            /* Checking for \r\n\r\n.\r\n */
+            if(i >= 6 && memcmp(carrWindow, carrEOFTarget2, 7) == 0){
+               printf("EOF(2) REACHED\n");
+               iEOF = 1;
+               break;
+            }
          }
 
          /* Once we've checked the buffer, we write to the file
           * We reduce the read count for every time we write data to file */
          if(iBufferSize < MAX_READ){
-            pszBuffer[iBufferSize + 1] = '\0';
+            pszBuffer[iBufferSize] = '\0';
          }
 
+         printf("OPENING FILE -> PATH %s\n", szFile);
          /* DATAFILE: Open the file in (a)ppend mode (new data is appended to the end of the file) */
          FILE *fpClientFile = fopen(szFile, "a");
+         if(fpClientFile == NULL){
+            free(ewaClientDATA);
+            ewaClientDATA = NULL;
+            iStatus = -4;
+            continue;
+         }
+
+         printf("BUFFER %s\n", pszBuffer);
 
          /* Write the data from the buffer to the file */  
-         iTotalBytesRemaining -= fprintf(fpClientFile, pszBuffer);
+         iTotalBytesSaved += fprintf(fpClientFile, "%s", pszBuffer);
          /*fprintf(fpClientFile, pszBuffer); */
 
          /* Close the file */
          fclose(fpClientFile);
          fpClientFile = NULL;
 
-         /* Track how many bytes were read */
-         iTotalBytesSaved += iBufferSize;
-
-         /* Free the buffer */
-         free(pszBuffer);
-         pszBuffer = NULL;
-
          /* If we hit EOF during the parse we exit the loop here. But first we let the client know we are done */
          if(iEOF == 1){
-            free(ewaClientFILE);
-            ewaClientFILE = NULL;
+            free(ewaClientDATA);
+            free(pszBuffer);
+            ewaClientDATA = NULL;
 
             /* EXIT DATAFILE READ */
             break;
          } 
-      }
+      }/*-> DATAREAD LOOP*/
+   }/*-> DATAFILE LOOP */
 
-
-      /* DATAFILE: When done with successful request, send response to continue */
-      switch(iEOF){
-         case 0: 
-            CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATAFILE OK - READY");
-            break;
-
-         case 1: 
-            CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK - WRITE COMPLETE");
-            break;
-      }
-
-      /* DATAFILE: Send message with code defined above */
-      if(send(*sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
-         iStatus = -1;
-         continue;
-      }
-
-      /* DATAFILE: If iEOF was hit we exit this loop and return to start of DATACMD :) */
-      if(iEOF == 1){
-         continue; /* Returns to DATACMD/QUIT LOOP */
-      }
-         
-   }/*-> DATA LOOP */
-
-   return 0;
+   return iStatus;
 }

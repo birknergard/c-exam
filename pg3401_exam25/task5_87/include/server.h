@@ -37,7 +37,7 @@ int RunProtocolMAILFROM(int *sockClient);
 
 int RunProtocolRCPTTO(int *sockClient);
 
-int RunProtocolDATA(int *sockClient, void *ewaCMD);
+int RunProtocolDATA(int *sockClient);
 /* 
  * Shorthand function for handling server errors
  * */
@@ -53,7 +53,7 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
 /*
  * Verifies that the header is correct
  * */
-int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit, int iLog);
+int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLimit, int iPrint);
 
 /*
  * Calculates the raw ip address number as a long int. Returns -1 if invalid string 

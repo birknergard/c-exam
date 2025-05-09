@@ -23,6 +23,9 @@ $(OBJDIR)/%.o: %.c $(DEPS)
 server: $(OBJS)
 	$(CC) -o $@ $^ $(CFLAGS)
 
+ewa:
+	cd ../../ ./ewa_exam_v25_i64
+
 .PHONY: clean
 clean:
 	rm -f $(OBJDIR)/*.o *~ core $(INCLDIR)/*~
