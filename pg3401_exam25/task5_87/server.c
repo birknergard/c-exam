@@ -95,6 +95,8 @@ int main(int iArgC, char **arrpszArgV){
 		return 1;
 	} 
 
+   printf("STARTED SERVER ON -PORT %d -ID %s\n", iPortNumber, szServerID);
+
 	/* Make server listen for input. 
     * Since its only one client we set listen to 1 */
 	iListened =	listen(sockServer, 1);
@@ -139,14 +141,40 @@ int main(int iArgC, char **arrpszArgV){
       return 1;
 	}  
 
-   /* TODO: Add error messages exit conditions */
-   RunProtocolHELO(&sockClient);
+   int iHELO = 0;
+   char szClientID[50];
+   memset(szClientID, 0, 50);
+   long int liClientIP = -1;
+   iHELO = RunProtocolHELO(&sockClient, szClientID, &liClientIP);
+   if(iHELO != 0) {
+      HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, "DENIED");
+      CloseSockets(&sockServer, &sockClient);
+      return 1;
+   }
+
    puts("");
 
-   RunProtocolMAILFROM(&sockClient);
+   int iMAILFROM = 0;
+   char szMailFrom[50];
+   memset(szMailFrom, 0, 50);
+   iMAILFROM = RunProtocolMAILFROM(&sockClient, szMailFrom);
+   if(iMAILFROM != 0) {
+      HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, "DENIED");
+      CloseSockets(&sockServer, &sockClient);
+      return 1;
+   }
    puts("");
 
-   RunProtocolRCPTTO(&sockClient);
+   int iRCPTTO = 0;
+   char szMailTo[50];
+   memset(szMailFrom, 0, 50);
+   iRCPTTO = RunProtocolRCPTTO(&sockClient, szMailTo);
+   if(iRCPTTO != 0) {
+      HandleServerError(&sockClient, &ewaServerREPLY, MSG_ERROR, "DENIED");
+      CloseSockets(&sockServer, &sockClient);
+      return 1;
+   }
+
    puts("");
 
    /* ---CMD PROTOCOL START--- */
@@ -273,7 +301,6 @@ int CreateServerReply(EWA_PROTOCOL *ewaStruct, char szStatusCode[], char szForma
    /* Copies the given size argument x bytes of the created string into the struct. */
    memcpy(ewaStruct->acFormattedString, szBuffer, SERVER_MSGSIZE);
    ewaStruct->acHardZero[0] = '\0';
-
 
    char szDataSizeBfr[5];
    snprintf(szDataSizeBfr, 5, "%04ld", sizeof(*ewaStruct));
@@ -461,10 +488,10 @@ void GetIPv4AddressAsString(char *szDestination, long int liIPv4Address){
    szDestination[strlen(szDestination)] = '\0';
 }
 
-int RunProtocolHELO(int *sockClient){
-   char szClientID[MAX_ID];
-   char szClientIP[IP_STRING_SIZE]; /* IP as string */
-   long int liClientIP; /* IP as raw number */
+int RunProtocolHELO(int *sockClient, char szClientID[], long int *liClientIP){
+   char szID[MAX_ID];
+   char szIP[IP_STRING_SIZE]; /* IP as string */
+   long int liIP; /* IP as raw number */
    int iIDSize = 0;
 
    EWA_PROTOCOL ewaServerHELO = {0};
@@ -474,20 +501,8 @@ int RunProtocolHELO(int *sockClient){
 	if(recv(*sockClient, &ewaClientHELO, sizeof(ewaClientHELO), 0) < 0){
 		return -1;
 	} 
-   /* Print to terminal */
-   printf("HELO: %s\n", (char *) &ewaClientHELO);
 
    /* HELO: Validate client request */
-   /* CHECKLIST FOR VALIDATION:
-    *  1. VALID HEADER (used for every header after this):
-    *    -> MAGIC = 'EWA'
-    *    -> DELIMITER = '|'
-    *    -> BYTE COUNT:
-    *       -> IS 4 DIGIT NUMBER (WITH 0 PADDING)
-    *       -> TODO:
-    *
-    *  2. REQUEST BODY:
-    *    -> COMMAND = "HELO"*/
    if((iIDSize = VerifyHeader(ewaClientHELO.stHead, sizeof(ewaClientHELO), 0)) < 0) {/* NOT VALID header */
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "INVALID HEADER");
       return 1;
@@ -513,26 +528,26 @@ int RunProtocolHELO(int *sockClient){
 
    if(ewaClientHELO.acHardZero[0] != '\0' /* Zero terminator */){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "MISSING ZERO TERMINATOR");
-      return -1;
+      return 1;
    }
 
    /* Initialize local variables for client data */
-   liClientIP = 0;
-   memset(szClientID, 0, MAX_ID);
+   liIP = 0;
+   memset(szID, 0, MAX_ID);
 
    /* Attempt to parse username into local buffer */
-   int iFormatCRead;
-   for(iFormatCRead = 0; iFormatCRead < iIDSize - 8; iFormatCRead++){
-      if(ewaClientHELO.acFormattedString[iFormatCRead] == '.'){
-         szClientID[iFormatCRead] = '\0';
+   int i;
+   for(i = 0; i < iIDSize - 8; i++){
+      if(ewaClientHELO.acFormattedString[i] == '.'){
+         szID[i] = '\0';
          break;
       }
-      szClientID[iFormatCRead] = ewaClientHELO.acFormattedString[iFormatCRead]; 
+      szID[i] = ewaClientHELO.acFormattedString[i]; 
    }
 
    /* ID needs to be at least two characters, 
     * max 42 (given that we need address as well, which is minimum 8 (1.1.1.1 */
-   if(strlen(szClientID) < 2 || strlen(szClientID) > 40){
+   if(strlen(szID) < 2 || strlen(szID) > 40){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR,"INVALID CLIENT ID");
       return 1;
    }
@@ -545,21 +560,23 @@ int RunProtocolHELO(int *sockClient){
 
    /* Parsing IP address. Starts calculating from where the id string ended (skipping the . terminator)
     * Keeping it both as a string and in raw format */
-   liClientIP = ParseIPv4Address(ewaClientHELO.acFormattedString + (iFormatCRead + 1));
-   GetIPv4AddressAsString(szClientIP, htonl(liClientIP));
-
-   /* Reset for later use */
-   iFormatCRead = 0;
+   liIP = ParseIPv4Address(ewaClientHELO.acFormattedString + (i + 1));
+   GetIPv4AddressAsString(szIP, htonl(liIP));
 
    /* Verify IP address */
-   if(liClientIP <= 0){
+   if(liIP <= 0){
 	   HandleServerError(sockClient, &ewaServerHELO, MSG_ERROR, "INVALID IP ADDRESS");
       return 1;
    }
 
    /* HELO: If all of these conditions are met, set reply to OK */
-   CreateServerReply(&ewaServerHELO, MSG_ACCEPT, "%d HELLO %s", liClientIP, szClientID);
+   CreateServerReply(&ewaServerHELO, MSG_ACCEPT, "%d HELLO %s", liIP, szID);
 
+   snprintf(szClientID, iIDSize, szID);
+   *liClientIP = liIP;
+
+   /* Print to terminal */
+   printf("HELO: %s %d\n", szClientID, *liClientIP);
    /* HELO: Send response to client */
 	if(send(*sockClient, &ewaServerHELO, 64, 0) < 0){
       return -1;
@@ -568,18 +585,43 @@ int RunProtocolHELO(int *sockClient){
    return 0;
 }
 
-int RunProtocolMAILFROM(int *sockClient){
+int RunProtocolMAILFROM(int *sockClient, char szMailFrom[]){
 
    struct EWA_EXAM25_TASK5_PROTOCOL_MAILFROM ewaClientMAILFROM = {0};
    EWA_PROTOCOL ewaServerREPLY = {0};
 
    /* RECEIVE "MAIL_FROM PROTOCOL" */
 	if(recv(*sockClient, &ewaClientMAILFROM, sizeof(ewaClientMAILFROM), 0) < 0){
-		return -1;
+		return -2;
 	} 
-   printf("MAIL FROM: %s\n", (char *) &ewaClientMAILFROM);
-   /* TODO: Validation of MAIL FROM TO*/
-   
+   int iSize;
+   if((iSize = VerifyHeader(ewaClientMAILFROM.stHead, 64, 0)) < 0) return 1;
+
+   if(ewaClientMAILFROM.acHardSpace[0] != ' '){
+      return 1;
+   }
+
+   if(ewaClientMAILFROM.acHardZero[0] != '\0'){
+      return 1;
+   }
+
+   /* Attempt to parse username into local buffer */
+   int i, iFoundDomain;
+   for(i = 0; i < iSize - 1; i++){
+      if(ewaClientMAILFROM.acFormattedString[i] == '@' && i != iSize - 1){
+         iFoundDomain = 1;
+      }
+      if(ewaClientMAILFROM.acFormattedString[iSize] == '>'){ 
+        szMailFrom[i + 1] = '\0';
+        break;
+      }
+      szMailFrom[i] = ewaClientMAILFROM.acFormattedString[i]; 
+   }
+   if(iFoundDomain != 1) return 1;
+
+   if(strlen(szMailFrom) < 3) return 1; /* A valid email needs at least a name@domain */
+
+   printf("MAILFROM: %s\n", szMailFrom);
 
    /* MAIL FROM: Sending response to client */
    CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "MAIL FROM RECEIVED");
@@ -590,7 +632,7 @@ int RunProtocolMAILFROM(int *sockClient){
    return 0;
 }
 
-int RunProtocolRCPTTO(int *sockClient){
+int RunProtocolRCPTTO(int *sockClient, char szMailTo[]){
 
    struct EWA_EXAM25_TASK5_PROTOCOL_RCPTTO ewaClientRCPTTO = {0};
    EWA_PROTOCOL ewaServerREPLY = {0};
@@ -599,9 +641,35 @@ int RunProtocolRCPTTO(int *sockClient){
 	if(recv(*sockClient, &ewaClientRCPTTO, sizeof(ewaClientRCPTTO), 0) < 0){
 		return -1;
 	} 
-   printf("RCPT TO: %s\n", (char *) &ewaClientRCPTTO);
-   /* TODO: Validation of RCPT TO*/
 
+   int iSize;
+   if((iSize = VerifyHeader(ewaClientRCPTTO.stHead, 64, 0)) < 0) return 1;
+
+   if(ewaClientRCPTTO.acHardSpace[0] != ' '){
+      return 1;
+   }
+
+   if(ewaClientRCPTTO.acHardZero[0] != '\0'){
+      return 1;
+   }
+
+   /* Attempt to parse username into local buffer */
+   int i, iFoundDomain;
+   for(i = 0; i < iSize - 1; i++){
+      if(ewaClientRCPTTO.acFormattedString[i] == '@' && i != iSize - 1){
+         iFoundDomain = 1;
+      }
+      if(ewaClientRCPTTO.acFormattedString[iSize] == '>'){ 
+        szMailTo[i + 1] = '\0';
+        break;
+      }
+      szMailTo[i] = ewaClientRCPTTO.acFormattedString[i]; 
+   }
+   if(iFoundDomain != 1) return 1;
+
+   if(strlen(szMailTo) < 3) return 1; /* A valid email needs at least a name@domain */
+
+   printf("RCPTTO: %s\n", szMailTo);
 
    /* RCPT TO: Send response */
    CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "RCPT TO RECEIVED - READY FOR COMMAND");
@@ -690,7 +758,7 @@ int RunProtocolDATA(int *sockClient){
    }
 
    /* Create filename at current directory (./<FILENAME>). Reusing buffer from validation step */
-   char szFile[64] = "./emlfiles/"; 
+   char szFile[64] = "./"; 
    strcat(szFile, szFileNameBuffer);
 
 

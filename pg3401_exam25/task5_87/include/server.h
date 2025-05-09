@@ -31,11 +31,11 @@ typedef struct {
 /* 
  * Runs HELO protocol
  * */
-int RunProtocolHELO(int *sockClient);
+int RunProtocolHELO(int *sockClient, char szClientID[], long int *liClientIP);
 
-int RunProtocolMAILFROM(int *sockClient);
+int RunProtocolMAILFROM(int *sockClient, char szMailFrom[]);
 
-int RunProtocolRCPTTO(int *sockClient);
+int RunProtocolRCPTTO(int *sockClient, char szMailTo[]);
 
 int RunProtocolDATA(int *sockClient);
 /* 
