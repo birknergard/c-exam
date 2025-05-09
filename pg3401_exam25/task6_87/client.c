@@ -5,7 +5,7 @@
  *
  *
  * */
-#include "solution.h"
+#include "client.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -58,15 +58,11 @@ int main(int iArgC, char **arrpszArgV){
 
    iStatus = connect(sockClient, (struct sockaddr *) &saAddress, sizeof(saAddress)); 
    if(iStatus < 0){
-      printf("Connection failed: CODE %d\n", errno);
+      printf("Connection failed with error %d. Exiting ...\n", errno);
       close(sockClient); sockClient = -1;
       return -1;
    } 
 
-   if(iStatus != 0){
-      printf("Client could not be started\n");
-      return 1;
-   }
 
    /*--------RECEIVE FILE-----------*/
 
@@ -81,51 +77,61 @@ int main(int iArgC, char **arrpszArgV){
    char szResponseHeader[MAX_HTTP_HEADER + 1] = {0};
 
    /* Check header */
-   if((iReceived = recv(sockClient, szResponseHeader, MAX_HTTP_HEADER, MSG_PEEK)) < 0){
+   if((iReceived = recv(sockClient, szResponseHeader, 900, MSG_PEEK)) < 0){
       printf("Failed to receive response from server - errcode %d\n", errno);
       close(sockClient); sockClient = -1;
       return -2; 
    } 
-   szResponseHeader[MAX_HTTP_HEADER] = '\0';
 
    /* Find start of ContentLength */
-   printf("Finding start of ContentLength\n");
    char szReader[258] = {0};
    char c;
    int i, k;
 
    /* This loop finds the range from the first newline it detects and the following one. */
-   int iarrLine[2], iFoundFirst = -1;
+   int iHeaderLength = 1;
+   int iarrLine[2], iFoundSizeIndexes = -1;
    memset(iarrLine, -1, sizeof(int) * 2);
 
    /* I devised this method to "safely" read any http header and find content-length */
-   for(i = 1; i < strlen(szResponseHeader); i++){
-      if(szResponseHeader[i - 1] == '\r' && szResponseHeader[i] == '\n'){
-         iarrLine[0] = i + 1;
-         k = 0;
-         while(k < strlen(szResponseHeader)){
-            szReader[k] = szResponseHeader[iarrLine[0] + k];
-            if(szResponseHeader[iarrLine[0] + k - 1] == '\r' && szResponseHeader[iarrLine[0] + k] == '\n'){
-               iarrLine[1] = k + iarrLine[0] - 2; /* Omitting the \r\n characters */
-               szReader[k] = '\0';
-               printf("\nLINE %s\n", szReader);
-               break;
+   for(i = 1; i < MAX_HTTP_HEADER; i++){
+      /* When found \r\n\r\n, we have reached the end of the header */
+      if(
+         i > 4 &&
+         szResponseHeader[i - 3] == '\r' && szResponseHeader[i - 2] == '\n' &&
+         szResponseHeader[i - 1] == '\r' && szResponseHeader[i] == '\n'
+      ) {
+         iHeaderLength = i + 1;
+         printf("LENGTH OF HEADER %d", iHeaderLength);
+         break;
+      }
+
+      if(iFoundSizeIndexes != 1){
+         if(szResponseHeader[i - 1] == '\r' && szResponseHeader[i] == '\n'){
+            iarrLine[0] = i + 1; /* Omitting the \r character */
+
+            k = 0;
+            while(k < strlen(szResponseHeader)){
+               szReader[k] = szResponseHeader[iarrLine[0] + k];
+
+               if(szResponseHeader[iarrLine[0] + k - 1] == '\r' && szResponseHeader[iarrLine[0] + k] == '\n'){
+                  iarrLine[1] = k + iarrLine[0] - 2; /* Omitting the \r\n characters */
+                  szReader[k] = '\0';
+                  break;
+               }
+               k++;
             }
-            k++;
-         }
 
-         /* Check line created for match with "Content-Length: " */
-         if(strncmp(szReader, "Content-Length: ", 15) == 0){
-            printf("Content-Length found!\n");
-            
-            /* If found, we store the location of where the number would start " ". 
-             * Where the number will end is already stored in the second index*/
-            iarrLine[0] += 16;
-            break;
+            /* Check line created for match with "Content-Length: " */
+            if(strncmp(szReader, "Content-Length: ", 15) == 0){
+               printf("Content-Length found!\n");
+               
+               /* If found, we store the location of where the number would start " ". 
+                * Where the number will end is already stored in the second index*/
+               iarrLine[0] += 16;
+               iFoundSizeIndexes = 1;
+            }
          }
-
-         memset(szReader, 0, 258);
-         i += k;
       }
    }
 
@@ -143,7 +149,8 @@ int main(int iArgC, char **arrpszArgV){
       cByte = szResponseHeader[i];
       /* Checks if byte is not digit */
       if(47 > cByte && cByte > 58){
-         printf("ContentLength includes non digit value. Closing ...\n");
+         printf("ContentLength includes non digit value. Exiting ...\n");
+         close(sockClient); sockClient = -1;
          return 1;
       } 
 
@@ -157,25 +164,58 @@ int main(int iArgC, char **arrpszArgV){
       iDigits--;
    }
 
-   if(iContentLength < MAX_HTTP_RESPONSE){
+   if(iContentLength > MAX_HTTP_RESPONSE){
       printf("Content length of response exceeds max. Exiting ...\n");
+      close(sockClient); sockClient = -1;
       return 1;
    }
 
 
    /*-------------RECIEVING FILE--------------*/
+
+   /* Allocating string to hold response. Add one extra to ensure null termination */
+   unsigned char *szResponse = NULL;
+   szResponse = (unsigned char *) malloc(iHeaderLength + iContentLength + 1);
+   if(szResponse == NULL){
+      printf("Malloc failed. Exiting ...\n");
+      close(sockClient); sockClient = -1;
+      return -3;
+   }
+
    /* Receive file */
-   if((iReceived = recv(sockClient, szResponseHeader, MAX_HTTP_HEADER, MSG_PEEK)) < 0){
+   iReceived = recv(sockClient, szResponse, (iHeaderLength + iContentLength), 0);
+   if(iReceived < 0){
       printf("Failed to receive response from server - errcode %d\n", errno);
       close(sockClient); sockClient = -1;
       return -2; 
    } 
-   szResponseHeader[MAX_HTTP_HEADER] = '\0';
 
 
+   printf("\nRESPONSE AS HEX=\n");
+   for(i = iHeaderLength; i < iContentLength; i++){
+      printf("%02x ", szResponse[i]);
+   }
 
-   /* Debugging, attempting to print response */
-   close(sockClient); sockClient = -1;
+   /* Opening / creating file handle */
+   FILE *fpEncryptedFile = NULL;
+   fpEncryptedFile = fopen("./encrypted.enc", "wb");
+   if(fpEncryptedFile == NULL){
+      free(szResponse);
+      szResponse = NULL;
+      close(sockClient); sockClient = -1;
+      return -1;
+   }
+
+   /* Writing contents of body to encrypted file*/
+   fwrite((szResponse + iHeaderLength), sizeof(unsigned char), iContentLength, fpEncryptedFile);
+
+   /* Closing file and cleaning up */
+   fclose(fpEncryptedFile);
+   fpEncryptedFile = NULL;
+   free(szResponse);
+   szResponse = NULL;
+   close(sockClient);
+   sockClient = -1;
 
    return 0;
 }
