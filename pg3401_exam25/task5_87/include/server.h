@@ -8,7 +8,7 @@
 #define SERVER_MSGSIZE 51
 
 #define MSG_ACCEPT "250"
-#define MSG_OK "354"
+#define MSG_READY "354"
 #define MSG_ERROR "501"
 #define MSG_EXIT "221"
 

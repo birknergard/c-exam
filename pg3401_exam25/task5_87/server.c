@@ -3,8 +3,7 @@
  * AUTHOR: 87
  * DESCRIPTION
  *
- * TODO: Logging for each error
- * TODO: Make rough complete smtp transaction, then implement proper validation
+ *
  * */
 #include <stdio.h>
 #include <stdlib.h>
@@ -180,7 +179,7 @@ int main(int iArgC, char **arrpszArgV){
    /* ---CMD PROTOCOL START--- */
    /* From here on the program loops until the client sends a close request or an error occurs. */
    int n = 0;
-   while(++n < 5){
+   while(1){
 
       /* Hold for a moment */
       sleep(1);
@@ -199,7 +198,7 @@ int main(int iArgC, char **arrpszArgV){
 
       /* DATACMD/CLOSE: Retrieve as data cmd at first, 
        * but checking command for actual protocol */
-      puts("PEEKING NEW COMMAND ...");
+      puts("ACCEPTING NEW COMMAND ...\n");
       if(recv(sockClient, &ewaClientCMD, sizeof(EWA_PROTOCOL), MSG_PEEK) < 0){
          printf("Receive error");
          iStatus = -2;
@@ -211,14 +210,9 @@ int main(int iArgC, char **arrpszArgV){
       strncpy(szCommand, (char*) &(ewaClientCMD.acCommand), 4);
       szCommand[4] = '\0';
 
-      if(n > 0){
-         printf("%s", &(ewaClientCMD));
-      }
-
       /* QUIT: If the command is quit, we exit the program completely */
-      printf("RECEIVED NEW COMMAND -> %s\n", szCommand);
-
       if(strcmp(szCommand, "QUIT") == 0){
+         puts("RECEIVED CMD -> QUIT");
          CreateServerReply(&ewaServerREPLY, MSG_EXIT, "QUIT RECEIVED: EXITING SERVER");
          if(send(sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
             iStatus = -1;
@@ -322,7 +316,7 @@ int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLi
 
    /* Check structure */ 
    if(strncmp(stHead.acMagicNumber, "EWP", 3) != 0) return 1;
-   if(iPrint == 1) printf("-> MAGIC OK");
+   if(iPrint == 1) puts("  -> MAGIC OK");
 
    /* Checks if every byte is a digit. Only reads ever reads 4 digits. */
    for(i = 0; i < 4; i++){
@@ -330,7 +324,7 @@ int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLi
          return 1;
       }
    }
-   if(iPrint == 1) printf("DIGITS -> OK");
+   if(iPrint == 1) puts("  -> DIGITS OK");
 
    /* Ensures only 4 digits are read */
    char szBuf[5];
@@ -342,19 +336,16 @@ int VerifyHeader(struct EWA_EXAM25_TASK5_PROTOCOL_SIZEHEADER stHead, int iByteLi
    iSize = atoi(szBuf);
 
    /* Check if value exceeds max (given as argument) */
-   printf("Checking WITHIN BYTELIMIT;");
    if(iSize > iByteLimit) {
-      printf("%d is outside of byte limit %d\n", iSize, iByteLimit);
       return 1;
    }
-
-   if(iPrint == 1) printf("DIGITS -> OK");
+   if(iPrint == 1) puts("  -> SIZE OK");
 
    if(stHead.acDelimeter[0] != '|') return 1;
-   if(iPrint == 1) printf("DIGITS -> OK");
+   if(iPrint == 1) puts("  -> DELIMITER OK");
 
    /* All checks passed */
-   printf("HEADER VERIFIED\n");
+   puts("HEADER ACCEPTED");
    return iSize;
 }
 
@@ -705,15 +696,10 @@ int RunProtocolDATA(int *sockClient){
       return -2;
    } 
 
-   puts("VERIFYING HEADER");
-   int dbHeader;
-   printf("RAW %s\n", (char*) &ewaClientDATACMD);
-   if(dbHeader = VerifyHeader(ewaClientDATACMD.stHead, 64, 1) <= 0){
-      printf("invalid header %d", dbHeader);
+   if(VerifyHeader(ewaClientDATACMD.stHead, 64, 1) <= 0){
       return 1;
    }
 
-   puts("VERIFYING FILENAME\n");
    /* Creating zero terminated buffer, to retrieve strlen
     * (cant retrieve strlen since acFormattedString isnt zero terminated) */
    char szFileNameBuffer[50];
@@ -761,8 +747,8 @@ int RunProtocolDATA(int *sockClient){
    char szFile[64] = "./"; 
    strcat(szFile, szFileNameBuffer);
 
-
-   CreateServerReply(&ewaServerREPLY, MSG_OK, "FILENAME OK, READY FOR DATA");
+   printf("DATACMD -> ACCEPT: %s\n", szFileNameBuffer);
+   CreateServerReply(&ewaServerREPLY, MSG_READY, "FILENAME ACCEPT");
 
    /* DATACMD: Send reply  */
    if(send(*sockClient, &ewaServerREPLY, sizeof(ewaServerREPLY), 0) < 0){
@@ -777,14 +763,12 @@ int RunProtocolDATA(int *sockClient){
    int iTotalBytesSaved = 0;
    int iEOF = 0;
 
-   puts("STARTING DATAFILE PROTOCOL\n");
    /*----DATAFILE RECEIVE LOOP----*/
    while(1){ 
 
       /* Exits the datafile protocol, returning the errorcode */
       if(iRestarting == 1 || iStatus != 0){
-         printf("BACK TO CMD: STATUS %d", iStatus);
-         CreateServerReply(&ewaServerREPLY, MSG_OK, "DATAFILE OK - WRITE COMPLETE");
+         CreateServerReply(&ewaServerREPLY, MSG_READY, "DATAFILE OK - WRITE COMPLETE");
          break;
       } 
 
@@ -793,7 +777,7 @@ int RunProtocolDATA(int *sockClient){
          iRestarting = 1;
          continue;
       } else {
-         CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATAFILE OK - READY");
+         CreateServerReply(&ewaServerREPLY, MSG_ACCEPT, "DATA OK - READY");
       }
 
       /* DATAFILE: Send message with code defined above */
@@ -835,6 +819,7 @@ int RunProtocolDATA(int *sockClient){
       } 
 
       printf("FILE IS %d BYTES\n", iTotalBytesRemaining);
+
       /* ----DATAFILE READ ENTRY----*/
       while(iTotalBytesRemaining > iTotalBytesSaved){
 
@@ -850,7 +835,7 @@ int RunProtocolDATA(int *sockClient){
             iBufferSize = iTotalBytesRemaining;
          }
 
-         printf("DATAFILE: Reading segment of size %d - %d Remaining ...\n", iBufferSize, iTotalBytesRemaining);
+         printf("READING SEGMENT OF SIZE %d - %d REMAINING ...\n", iBufferSize, iTotalBytesRemaining);
 
 
          /* Allocate the buffer */
@@ -865,9 +850,12 @@ int RunProtocolDATA(int *sockClient){
          }
          memset(pszBuffer, 0, iBufferSize);
 
-         /* Write "iBufferSize" count of */
+         /* Targets to look for. If our "window" equals these targets then we 
+	  * call EOF */
          char carrEOFTarget1[] = {'\n','\n','.','\n'};
          char carrEOFTarget2[] = {'\r','\n','\r','\n','.','\r','\n'};
+
+	 /* Declaring window */
          char carrWindow[8];
          memset(carrWindow, '0', 8);
 
@@ -888,13 +876,20 @@ int RunProtocolDATA(int *sockClient){
             /* New element goes in rightmost index */
             carrWindow[6] = ewaClientDATA->acFileContent[iCurrent];
 
-            printf("-> %d WINDOW=[", iCurrent);
+	    /* Prints the current window */
+            printf("-> %d WINDOW=[ ", iCurrent);
             for(j = 0; j < 7; j++){
-               if(carrWindow[j] == '\r') printf("CR");
-               if(carrWindow[j] == '\n') printf("LF");
-               else printf("%c", carrWindow[j]);
+               if(carrWindow[j] == '\r')
+                  printf("CR ");
+               else if(carrWindow[j] == '\n')
+                  printf("LF ");
+               else 
+                  printf("%c ", carrWindow[j]);
             }
-            puts("] END");
+            printf("] END\n");
+
+            /* Checking the byte content */
+
 
             pszBuffer[i] = carrWindow[6];
 
@@ -918,7 +913,6 @@ int RunProtocolDATA(int *sockClient){
             pszBuffer[iBufferSize] = '\0';
          }
 
-         printf("OPENING FILE -> PATH %s\n", szFile);
          /* DATAFILE: Open the file in (a)ppend mode (new data is appended to the end of the file) */
          FILE *fpClientFile = fopen(szFile, "a");
          if(fpClientFile == NULL){
@@ -928,18 +922,16 @@ int RunProtocolDATA(int *sockClient){
             continue;
          }
 
-         printf("BUFFER %s\n", pszBuffer);
-
          /* Write the data from the buffer to the file */  
          iTotalBytesSaved += fprintf(fpClientFile, "%s", pszBuffer);
          /*fprintf(fpClientFile, pszBuffer); */
 
-         /* Close the file */
-         fclose(fpClientFile);
-         fpClientFile = NULL;
-
          /* If we hit EOF during the parse we exit the loop here. But first we let the client know we are done */
          if(iEOF == 1){
+            /* Closing the file since EOF was reached */
+            fclose(fpClientFile);
+            fpClientFile == NULL;
+
             free(ewaClientDATA);
             free(pszBuffer);
             ewaClientDATA = NULL;
