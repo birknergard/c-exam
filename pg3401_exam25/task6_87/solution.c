@@ -325,10 +325,12 @@ int main(int iArgC, char **arrpszArgV){
 
          cKeyChar = (unsigned char) iCheckedCharKey;
          memset(by4Key, cKeyChar, 4);
+         /*
          for(a = 0; a < 16; a++){
             printf("%02X", by4Key[0]); 
          }
          puts("]");
+         */
 
          int l = 0;
          /* Checks both in little and big endian */
@@ -396,23 +398,33 @@ int main(int iArgC, char **arrpszArgV){
 
             /* Converts the long (int, int) into a single char. When converting to char, C only keeps the first byte.
              * Since PKCS5 padding pads rightwards we know this is the intenden char. */
-           byDeciphered = (char) un_by8Encrypted.by[0];
+
+            /* If every byte after the first == 0x07 the char is almost certainly decrypted*/
+            int pad;
+            for(pad = 1; pad < 8; pad++){
+               if(un_by8Encrypted.by[pad] != 0x07 ) {
+                  iDeciphered = 0;
+                  break;
+               } 
+            }
+
+            if(iDeciphered == 0) break;
+
+            byDeciphered = (char) un_by8Encrypted.by[0];
+            l++;
+            szDeciphered[l] = byDeciphered;
 
             /* Check if the character is readable ascii. If not then we skip this key */
             /* If the inverse condition happens, we restart */
+            /*
             if((126 >= byDeciphered && byDeciphered >= 32) || byDeciphered == '\r' || byDeciphered == '\n'){
                /* If it is readable ascii, we add it to the text string */
 
-               l++;
-               szDeciphered[l] = byDeciphered;
-               if(l == iSize){
-                  printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, cKeyChar);
-                  szDeciphered[iSize] = '\0';
-                  printf("Solution? %s", szDeciphered);
-               }
-            } else {
-               break;
-            }
+         }
+         if(iDeciphered == 1){
+            printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, cKeyChar);
+            szDeciphered[iSize] = '\0';
+            printf("Solution? %s\n", szDeciphered);
          }
       }
    }
