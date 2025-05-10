@@ -8,16 +8,16 @@ CFLAGS += -std=c89
 
 OBJDIR = obj
 
-_DEPS = client.h
+_DEPS = solution.h  
 DEPS = $(patsubst %,$(INCLDIR)/%,$(_DEPS))
 
-_OBJS = client.o
+_OBJS = solution.o 
 OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-client: $(OBJS)
+solution: $(OBJS)
 	gcc -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
