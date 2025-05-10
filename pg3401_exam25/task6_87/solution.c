@@ -17,12 +17,6 @@
 
 #include <byteswap.h> /* Big to little endian conversion */
 
-#define BY8 long
-
-typedef struct _ENC_REQUEST{
-   char *szHeader;
-   BY8 *arrlEncrypted;
-} ENC_REQUEST;
 
 int main(int iArgC, char **arrpszArgV){
 
@@ -283,69 +277,59 @@ int main(int iArgC, char **arrpszArgV){
 
 
    /* For more flexibility */
-   BY8 byTestFileBuffer[81] = {0};
-   BY4 byEncrypted[2] = {0};
-   BY4 by4Key[4];
+   union UN_BY8 aun_by8Encrypted[81] = {0};
 
    BYTE byDeciphered;
    int iReadCharacters;
-   int i, y, q, iKeyChar = 0;
+   int i, y, q = 0;
+   unsigned char cKeyChar = 0;
    int iDeciphered = 0;
    int iIterations = 8;
    int iEndian = 0;
 
    /* Debug, making sure file was written correcly */
-   fread(byTestFileBuffer, sizeof(BY8), 81, fpEncrypted);
+   fread(aun_by8Encrypted, sizeof(BY8), 81, fpEncrypted);
 
    printf("\nENC AS HEX, AFTER WRITE=\n");
    for(i = 0; i < iSize; i++){
       /* Ensure host byte order ? source: htons(3) man page */
       /*reRequest.arrlEncrypted[i] = reRequest.arrlEncrypted[i];*/
-      printf("%08X ", byTestFileBuffer[i]);
+      printf("%08X ", aun_by8Encrypted[i].by8Normal);
    }
-      printf("\nENC AFTER WRITE END=\n");
+   printf("\nENC AFTER WRITE END=\n");
 
    for(y = 1; y <= 8; y++){
       puts("\n");
       rewind(fpEncrypted);
 
-      /* Checks between little and big endian */
       if(y % 2 == 0){
          iEndian = 1;
+
+      /* Checks between little endian (host order) and big endian (network order) */
       } else{
-         if(y >= 3) iIterations += iIterations; /* Doubles the iterations from the previous loop */
+         printf("\nENC AS HEX, AFTER NTHOL=\n");
+         if(y >= 3) iIterations += iIterations; /* Doubles the iterations from the previous loop (MAX 64) */
+         for(i = 0; i < 81; i++) {
+            aun_by8Encrypted[i].by8Normal = ntohl(aun_by8Encrypted[i].by8Normal);
+            printf("%08X ", aun_by8Encrypted[i].by8Normal);
+         }
          iEndian = -1;
+         printf("\nAFTER NTHOL END=\n");
       } 
 
       printf("---RUNNING DECRYPT -> %d TEA ITERATIONS, %d ENDIAN\n", iIterations, iEndian);
-      for(iKeyChar = 0; iKeyChar <= 255; iKeyChar++){
+      int iCheckedCharKey = 0;
+      for(iCheckedCharKey = 0; iCheckedCharKey <= 255; iCheckedCharKey++){
 
+         cKeyChar = (unsigned char) iCheckedCharKey;
          /* Sets the file back to the start, since we check the whole file each loop */
          rewind(fpEncrypted);
+         BYTE by4Key[4]; /* since every byte is the same, this is fine just for padding for one key modifier later */
+         memset(by4Key, cKeyChar, 4);
 
          int l = 0;
          /* Checks both in little and big endian */
          while(l < iSize){
-            iReadCharacters = (int) fread(byEncrypted, sizeof(BY4), 2, fpEncrypted);
-            if(iReadCharacters != 2){
-                printf("Read failed: iReadCharacters = %d\n", iReadCharacters);
-                printf("feof: %d, ferror: %d, errno: %d (%s)\n",
-                       feof(fpEncrypted), ferror(fpEncrypted), errno, strerror(errno));
-                break;
-            }
-
-            /* If converts from little to big endian */
-            /*
-            if(iEndian == 1){
-               byEncrypted[0] = htonl(byEncrypted[0]);
-               byEncrypted[1] = htonl(byEncrypted[1]);
-            } else {
-               byEncrypted[0] = ntohl(byEncrypted[0]);
-               byEncrypted[1] = ntohl(byEncrypted[1]);
-            }
-            */
-
-            /*printf("Read block: [%02x, %02x] - ", byEncrypted[0], byEncrypted[1]);
 
             /* Since one long long is equivalent to 2 * integers (4 bytes each) */
             /* Starting with a brute force approach. 
@@ -355,7 +339,7 @@ int main(int iArgC, char **arrpszArgV){
 
             /* For deciphering I tried to take the code from task4_threads.c and reverse it.
              * NOTE: As i probably mentioned in that source file, the code was essentially entirely based on
-             * the supplied tea.c file.
+             * the supplied tea.c file and its documentation.
 
             /* Since it is a symmetrical algorithm that must mean that reversing it
              * would decipher, given the same key. */
@@ -365,7 +349,6 @@ int main(int iArgC, char **arrpszArgV){
              * 
              * In the original algorithm the same delta was
              * added to the sum 32 times. So perhaps we should try to have it start at 32 * delta? */
-            /*NOTE: I think the delta is the problem, or the key(doubtful)*/
             unsigned int uiDelta = 0x9E3779B9;
             unsigned int uiSum = (uiDelta * iIterations);
 
@@ -373,8 +356,17 @@ int main(int iArgC, char **arrpszArgV){
             /* Deciphers padded byte */
             for(n = 0; n < iIterations; n++){
                /* Subtracting the amount of characters that was originally added "added".*/
-               byEncrypted[1] -= ((byEncrypted[0] << 4) + iKeyChar) ^ (byEncrypted[0] + uiSum) ^ ((byEncrypted[0] >> 5) + iKeyChar);
-               byEncrypted[0] -= ((byEncrypted[1] << 4) + iKeyChar) ^ (byEncrypted[1] + uiSum) ^ ((byEncrypted[1] >> 5) + iKeyChar);
+               aun_by8Encrypted[l].by4Second -= (
+                  (aun_by8Encrypted[l].by4First << 4) + by4Key[2]) ^ 
+                  (aun_by8Encrypted[l].by4First + uiSum) ^ 
+                  ((aun_by8Encrypted[l].by4First >> 5) + by4Key[3]
+               );
+
+               aun_by8Encrypted[l].by4First -= (
+                  (aun_by8Encrypted[l].by4Second << 4) + by4Key[0]) ^ 
+                  (aun_by8Encrypted[l].by4Second + uiSum) ^ 
+                  ((aun_by8Encrypted[l].by4Second >> 5) + by4Key[1]
+               );
                /* Since we  increased to sum to add to the encrypted character sum in the last algorithm,
                 * we subtract it here */
                uiSum -= uiDelta;
@@ -386,7 +378,7 @@ int main(int iArgC, char **arrpszArgV){
 
             /* Converts the long (int, int) into a single char. When converting to char, C only keeps the first byte.
              * Since PKCS5 padding pads rightwards we know this is the intenden char. */
-            byDeciphered = (char) byEncrypted[0];
+            byDeciphered = (unsigned char) aun_by8Encrypted[l].by4First;
 
             /* Check if the character is readable ascii. If not then we skip this key */
             /* If the inverse condition happens, we restart */
@@ -399,12 +391,10 @@ int main(int iArgC, char **arrpszArgV){
                printf("%c", byDeciphered);
 
                if(strlen(szDeciphered) == l){
-                  printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, iKeyChar);
+                  printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, cKeyChar);
                   szDeciphered[iSize] = '\0';
                   printf("Solution? %s", szDeciphered);
                }
-
-               l++;
             } else {
                break;
             }
