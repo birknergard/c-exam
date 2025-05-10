@@ -16,9 +16,9 @@ typedef struct _ENC_REQUEST{
 #pragma pack()
 
 union UN_BY8 {
-   BY4 by4First;
-   BY4 by4Second;
-   BY8 by8Normal;
+   BYTE by[8];
+   BY4 by4[2];
+   BY8 by8Base;
 };
 
 #endif /*ndef SOLUTION_H*/
