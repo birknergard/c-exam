@@ -16,7 +16,13 @@
 #include <netinet/in.h> /*  */
 
 #include <byteswap.h> /* Big to little endian conversion */
-#include <endian.h>
+
+#define BY8 long
+
+typedef struct _ENC_REQUEST{
+   char *szHeader;
+   BY8 *arrlEncrypted;
+} ENC_REQUEST;
 
 int main(int iArgC, char **arrpszArgV){
 
@@ -176,47 +182,82 @@ int main(int iArgC, char **arrpszArgV){
 
       /*-------------RECIEVING FILE--------------*/
 
-      /* Allocating string to hold response. Add one extra to ensure null termination */
-      unsigned char *szResponse = NULL;
-      szResponse = (unsigned char *) malloc(iHeaderLength + iContentLength + 1);
-      if(szResponse == NULL){
+      /* Allocating struct to hold response. Divided into the header (string array) and encrypted message (long array) */
+      ENC_REQUEST reRequest;
+      reRequest.szHeader = NULL;
+      reRequest.arrlEncrypted = NULL;
+
+      reRequest.szHeader = (unsigned char *) malloc(iHeaderLength);
+      if(reRequest.szHeader == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
          return -3;
       }
 
-      /* Receive file */
-      iReceived = recv(sockClient, szResponse, (iHeaderLength + iContentLength), 0);
+      reRequest.arrlEncrypted = (BY8 *) malloc(sizeof(BY8) * (iContentLength / 8));
+      if(reRequest.arrlEncrypted == NULL){
+         printf("Malloc failed. Exiting ...\n");
+         close(sockClient); sockClient = -1;
+         return -3;
+      }
+
+      /* Receive header first */
+      iReceived = recv(sockClient, reRequest.szHeader, iHeaderLength, 0);
       if(iReceived < 0){
          printf("Failed to receive response from server - errcode %d\n", errno);
          close(sockClient); sockClient = -1;
          return -2; 
       } 
 
+      /* Then receive the encrypted message in 64 bit array first */
+      iReceived = recv(sockClient, reRequest.arrlEncrypted, iContentLength, 0);
+      if(iReceived < 0){
+         printf("Failed to receive response from server - errcode %d\n", errno);
+         close(sockClient); sockClient = -1;
+         return -2; 
+      } 
 
-      printf("\nRESPONSE AS HEX=\n");
-      for(i = iHeaderLength; i < iContentLength; i++){
-         printf("%02x ", szResponse[i]);
+      printf("\nHEADER\n");
+      for(i = 0; i < iHeaderLength; i++){
+         if(reRequest.szHeader[i] == '\r') printf("\\r");
+         else if(reRequest.szHeader[i] == '\n') printf("\\n");
+         else printf("%c", reRequest.szHeader[i]);
       }
+      puts("\nHEADER END\n");
+
+      printf("\nENC AS HEX=\n");
+      for(i = 0; i < iContentLength / 8; i++){
+         /* Ensure host byte order ? source: htons(3) man page */
+         reRequest.arrlEncrypted[i] = reRequest.arrlEncrypted[i];
+         printf("%08X ", reRequest.arrlEncrypted[i]);
+      }
+      printf("\nENC END=\n");
 
       /* Opening / creating file handle */
       FILE *fpEncryptedFile = NULL;
       fpEncryptedFile = fopen("./encrypted.bin", "wb");
       if(fpEncryptedFile == NULL){
-         free(szResponse);
-         szResponse = NULL;
+         free(reRequest.szHeader);
+         reRequest.szHeader = NULL;
+         free(reRequest.arrlEncrypted);
+         reRequest.arrlEncrypted = NULL;
          close(sockClient); sockClient = -1;
          return -1;
       }
 
-      /* Writing contents of body to encrypted file*/
-      fwrite((szResponse + iHeaderLength), sizeof(unsigned char), iContentLength, fpEncryptedFile);
+
+      /* Writing contents of body to encrypted file. Write size of 8 (since each is padded to 64)*/
+      fwrite(reRequest.arrlEncrypted, sizeof(BY8), iContentLength / 8, fpEncryptedFile);
 
       /* Closing file and cleaning up */
       fclose(fpEncryptedFile);
       fpEncryptedFile = NULL;
-      free(szResponse);
-      szResponse = NULL;
+
+      free(reRequest.szHeader);
+      reRequest.szHeader = NULL;
+      free(reRequest.arrlEncrypted);
+      reRequest.arrlEncrypted = NULL;
+   
       close(sockClient);
       sockClient = -1;
    }
@@ -239,24 +280,47 @@ int main(int iArgC, char **arrpszArgV){
       printf("Failed to open file.\n");
       return 1;
    }
-   
+
+
    /* For more flexibility */
+   BY8 byTestFileBuffer[81] = {0};
    BY4 byEncrypted[2] = {0};
    BY4 by4Key[4];
 
    BYTE byDeciphered;
    int iReadCharacters;
-   int i, y, q, iKeyChar;
+   int i, y, q, iKeyChar = 0;
    int iDeciphered = 0;
    int iIterations = 8;
+   int iEndian = 0;
 
-   for(y = 1; y <= 4; y++){
+   /* Debug, making sure file was written correcly */
+   fread(byTestFileBuffer, sizeof(BY8), 81, fpEncrypted);
+
+   printf("\nENC AS HEX, AFTER WRITE=\n");
+   for(i = 0; i < iSize; i++){
+      /* Ensure host byte order ? source: htons(3) man page */
+      /*reRequest.arrlEncrypted[i] = reRequest.arrlEncrypted[i];*/
+      printf("%08X ", byTestFileBuffer[i]);
+   }
+      printf("\nENC AFTER WRITE END=\n");
+
+   for(y = 1; y <= 8; y++){
+      puts("\n");
       rewind(fpEncrypted);
-      printf("With %d iterations on tea.\n", iIterations);
-      int s = 2;
-      while(++s < y) iIterations += iIterations;
 
+      /* Checks between little and big endian */
+      if(y % 2 == 0){
+         iEndian = 1;
+      } else{
+         if(y >= 3) iIterations += iIterations; /* Doubles the iterations from the previous loop */
+         iEndian = -1;
+      } 
+
+      printf("---RUNNING DECRYPT -> %d TEA ITERATIONS, %d ENDIAN\n", iIterations, iEndian);
       for(iKeyChar = 0; iKeyChar <= 255; iKeyChar++){
+
+         /* Sets the file back to the start, since we check the whole file each loop */
          rewind(fpEncrypted);
 
          int l = 0;
@@ -269,7 +333,19 @@ int main(int iArgC, char **arrpszArgV){
                        feof(fpEncrypted), ferror(fpEncrypted), errno, strerror(errno));
                 break;
             }
-            /*printf("Read block: [%02x, %02x] - ", byEncrypted[0], byEncrypted[1]); */
+
+            /* If converts from little to big endian */
+            /*
+            if(iEndian == 1){
+               byEncrypted[0] = htonl(byEncrypted[0]);
+               byEncrypted[1] = htonl(byEncrypted[1]);
+            } else {
+               byEncrypted[0] = ntohl(byEncrypted[0]);
+               byEncrypted[1] = ntohl(byEncrypted[1]);
+            }
+            */
+
+            /*printf("Read block: [%02x, %02x] - ", byEncrypted[0], byEncrypted[1]);
 
             /* Since one long long is equivalent to 2 * integers (4 bytes each) */
             /* Starting with a brute force approach. 
@@ -290,42 +366,48 @@ int main(int iArgC, char **arrpszArgV){
              * In the original algorithm the same delta was
              * added to the sum 32 times. So perhaps we should try to have it start at 32 * delta? */
             /*NOTE: I think the delta is the problem, or the key(doubtful)*/
-            unsigned long uiSum = (0x9E3779B9 * iIterations), uiDelta = 0x9E3779B9;
+            unsigned int uiDelta = 0x9E3779B9;
+            unsigned int uiSum = (uiDelta * iIterations);
 
             int n;
             /* Deciphers padded byte */
             for(n = 0; n < iIterations; n++){
                /* Subtracting the amount of characters that was originally added "added".*/
-               byEncrypted[1] -= (byEncrypted[0] << 4) + iKeyChar ^ byEncrypted[0] + uiSum ^ ( byEncrypted[0] >> 5) + iKeyChar;
-               byEncrypted[0] -= (byEncrypted[1] << 4) + iKeyChar ^ byEncrypted[1] + uiSum ^ ( byEncrypted[1] >> 5) + iKeyChar;
+               byEncrypted[1] -= ((byEncrypted[0] << 4) + iKeyChar) ^ (byEncrypted[0] + uiSum) ^ ((byEncrypted[0] >> 5) + iKeyChar);
+               byEncrypted[0] -= ((byEncrypted[1] << 4) + iKeyChar) ^ (byEncrypted[1] + uiSum) ^ ((byEncrypted[1] >> 5) + iKeyChar);
                /* Since we  increased to sum to add to the encrypted character sum in the last algorithm,
                 * we subtract it here */
                uiSum -= uiDelta;
             }
+            if(uiSum != 0){
+               printf("ERROR. exiting ...\n");
+               return 1;
+            }
 
+            /* Converts the long (int, int) into a single char. When converting to char, C only keeps the first byte.
+             * Since PKCS5 padding pads rightwards we know this is the intenden char. */
             byDeciphered = (char) byEncrypted[0];
 
-            szDeciphered[l] = byDeciphered;
-            l++;
-         }
-
-         szDeciphered[iSize] = '\0';
-
-         /* Check that all characters are usable in plaintext
-          * For a char to be readable it has have a value between 32 and 127 (ascii printable characters). So we check every char
-          * in the array if they are within this range. If they are, we print to terminal for now to see if it makes sense.*/
-         iDeciphered = 1;
-         for(i = 0; i < iSize; i++){
+            /* Check if the character is readable ascii. If not then we skip this key */
             /* If the inverse condition happens, we restart */
-            if(127 < szDeciphered[i]){
-               iDeciphered = 0;
+            if((126 >= byDeciphered && byDeciphered >= 32) || byDeciphered == '\r' || byDeciphered == '\n'){
+               /* If it is readable ascii, we add it to the text string */
+               char c = szDeciphered[i];
+
+               l++;
+               szDeciphered[l] = byDeciphered;
+               printf("%c", byDeciphered);
+
+               if(strlen(szDeciphered) == l){
+                  printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, iKeyChar);
+                  szDeciphered[iSize] = '\0';
+                  printf("Solution? %s", szDeciphered);
+               }
+
+               l++;
+            } else {
+               break;
             }
-         }
-         if(iDeciphered == 1){
-            printf("\nDECIPHERED TEXT! TERATIONS:%d ?\n%s", iIterations, szDeciphered);
-            break;
-         } else {
-            printf("\nDECIPHER FAILED\n");
          }
       }
    }
@@ -335,4 +417,5 @@ int main(int iArgC, char **arrpszArgV){
 
    return 0;
 }
+
 
