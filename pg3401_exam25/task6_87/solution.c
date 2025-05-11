@@ -180,7 +180,7 @@ int main(int iArgC, char **arrpszArgV){
       /* Allocating struct to hold response. Divided into the header (string array) and encrypted message (long array) */
       ENC_REQUEST reRequest;
       reRequest.szHeader = NULL;
-      reRequest.arrlEncrypted = NULL;
+      reRequest.arrby8Encrypted = NULL;
 
       reRequest.szHeader = (unsigned char *) malloc(iHeaderLength + 1);
       if(reRequest.szHeader == NULL){
@@ -189,8 +189,8 @@ int main(int iArgC, char **arrpszArgV){
          return -3;
       }
 
-      reRequest.arrlEncrypted = (BY8 *) malloc(sizeof(BY8) * (iContentLength / 8));
-      if(reRequest.arrlEncrypted == NULL){
+      reRequest.arrby8Encrypted = (union UN_BY8 *) malloc(sizeof(BY8) * (iContentLength / 8));
+      if(reRequest.arrby8Encrypted == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
          return -3;
@@ -205,7 +205,7 @@ int main(int iArgC, char **arrpszArgV){
       } 
 
       /* Then receive the encrypted message in 64 bit array first */
-      iReceived = recv(sockClient, reRequest.arrlEncrypted, iContentLength, 0);
+      iReceived = recv(sockClient, reRequest.arrby8Encrypted, iContentLength, 0);
       if(iReceived < 0){
          printf("Failed to receive response from server - errcode %d\n", errno);
          close(sockClient); sockClient = -1;
@@ -223,8 +223,8 @@ int main(int iArgC, char **arrpszArgV){
       printf("\nENC AS HEX=\n");
       for(i = 0; i < iContentLength / 8; i++){
          /* Ensure host byte order ? source: htons(3) man page */
-         /* reRequest.arrlEncrypted[i] = reRequest.arrlEncrypted[i];*/
-         printf("%016llX ", reRequest.arrlEncrypted[i]);
+         /* reRequest.arrby8Encrypted[i] = reRequest.arrby8Encrypted[i];*/
+         printf("%016llX ", reRequest.arrby8Encrypted[i]);
       }
       printf("\nENC END=\n");
 
@@ -234,15 +234,15 @@ int main(int iArgC, char **arrpszArgV){
       if(fpEncryptedFile == NULL){
          free(reRequest.szHeader);
          reRequest.szHeader = NULL;
-         free(reRequest.arrlEncrypted);
-         reRequest.arrlEncrypted = NULL;
+         free(reRequest.arrby8Encrypted);
+         reRequest.arrby8Encrypted = NULL;
          close(sockClient); sockClient = -1;
          return -1;
       }
 
 
-      /* Writing contents of body to encrypted file. Write size of 8 (since each is padded to 64)*/
-      fwrite(reRequest.arrlEncrypted, sizeof(BY8), iContentLength / 8, fpEncryptedFile);
+      /* Writing contents of body to encrypted file (as signed char)*/
+      fwrite(reRequest.arrby8Encrypted, sizeof(char), iContentLength, fpEncryptedFile);
 
       /* Closing file and cleaning up */
       fclose(fpEncryptedFile);
@@ -250,8 +250,8 @@ int main(int iArgC, char **arrpszArgV){
 
       free(reRequest.szHeader);
       reRequest.szHeader = NULL;
-      free(reRequest.arrlEncrypted);
-      reRequest.arrlEncrypted = NULL;
+      free(reRequest.arrby8Encrypted);
+      reRequest.arrby8Encrypted = NULL;
       close(sockClient);
       
       sockClient = -1;
@@ -290,7 +290,7 @@ int main(int iArgC, char **arrpszArgV){
    int iEndian = 1;
 
    /* Writing file to our buffer */
-   fread(aun_by8Encrypted, sizeof(BY8), 81, fpEncrypted);
+   fread(aun_by8Encrypted, sizeof(char), iFileContent, fpEncrypted);
 
    /* Closing the file */
    fclose(fpEncrypted);
@@ -299,7 +299,7 @@ int main(int iArgC, char **arrpszArgV){
    printf("\nENC AS HEX, AFTER WRITE=\n");
    for(i = 0; i < iSize; i++){
       /* Ensure host byte order ? source: htons(3) man page */
-      /*reRequest.arrlEncrypted[i] = reRequest.arrlEncrypted[i];*/
+      /*reRequest.arrby8Encrypted[i] = reRequest.arrby8Encrypted[i];*/
       printf("%016llX ", aun_by8Encrypted[i].by8Base);
    }
    printf("\nENC AFTER WRITE END=\n");
@@ -403,7 +403,7 @@ int main(int iArgC, char **arrpszArgV){
             /* If every byte after the first == 0x07 the char is almost certainly decrypted*/
             int pad;
             for(pad = 1; pad < 8; pad++){
-               if(un_by8Encrypted.by[pad] != 0x07 ) {
+               if(un_by8Encrypted.schar[pad] != 0x07 ) {
                   iDeciphered = 0;
                   break;
                } 
@@ -411,7 +411,7 @@ int main(int iArgC, char **arrpszArgV){
 
             if(iDeciphered == 0) break;
 
-            byDeciphered = (char) un_by8Encrypted.by[0];
+            byDeciphered = un_by8Encrypted.schar[0];
             l++;
             szDeciphered[l] = byDeciphered;
 
@@ -429,10 +429,6 @@ int main(int iArgC, char **arrpszArgV){
          }
       }
    }
-
-   printf("Sizeof BY %ld\n", sizeof(BYTE));
-   printf("Sizeof BY8 %ld\n", sizeof(BY8));
-   printf("Sizeof BY4 %ld", sizeof(BY4));
 
 
    return 0;

@@ -8,17 +8,19 @@
 #define BY4 unsigned int
 #define BY8 unsigned long
 
-#pragma pack(1)
-typedef struct _ENC_REQUEST{
-   char *szHeader;
-   BY8 *arrlEncrypted;
-} ENC_REQUEST;
-#pragma pack()
-
 union UN_BY8 {
+   char schar[8];
    BYTE by[8];
    BY4 by4[2];
    BY8 by8Base;
 };
+
+#pragma pack(1)
+typedef struct _ENC_REQUEST{
+   char *szHeader;
+   union UN_BY8 *arrby8Encrypted;
+} ENC_REQUEST;
+#pragma pack()
+
 
 #endif /*ndef SOLUTION_H*/
