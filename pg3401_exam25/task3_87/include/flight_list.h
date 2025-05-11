@@ -100,7 +100,7 @@ typedef struct _FLIGHT_LIST {
    FLIGHT_NODE *pfnHead;
    FLIGHT_NODE *pfnTail;
 
-   /* ppp = (arr)ay (p)ointer (p)assenger */ 
+   /* arrpp = (arr)ay (p)ointer (p)assenger */ 
    PASSENGER **arrppUniquePassengers;
    /*Holds every unique PASSENGER * in a dynamic array of pointers,
     to prevent duplicates and make some tasks easier */

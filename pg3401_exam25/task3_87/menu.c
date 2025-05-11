@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "debug.h"
 
@@ -89,7 +90,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	/* Creates a new option, checks if valid (function takes care of logging) */ 
 	pNewOption = _CreateOption(szTitle, vfAction);
 	if(pNewOption == NULL){
-		return ERROR;
+		return 1;
 	}
 
 	/* Holds the optioncount in menu directly through int pointer 
@@ -102,7 +103,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 		/* Allocate pointer pointer */
 		pMenu->pOptions = (OPTION **) malloc(sizeof(OPTION *));
 		if(pMenu->pOptions == NULL){
-			return ERROR;
+			return 1;
 		}
 		/* Bitwise copy initial option address to new option */
 		pMenu->pOptions[0] = pNewOption;
@@ -136,7 +137,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	piOptionCount = NULL;
 	pNewOption = NULL;
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -164,7 +165,7 @@ int DestroyMenu(MENU *pMenu){
 	free(pMenu->pOptions);
 	free(pMenu);
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -174,7 +175,7 @@ int DestroyMenu(MENU *pMenu){
 static int _ExecuteAction(MENU pMenu, int iSelection){
 
 	pMenu.pOptions[iSelection - 1]->vfAction(pMenu.vpStruct);
-	return OK;
+	return 0;
 }
 
 /*
@@ -192,7 +193,7 @@ static int _DisplayOptions(MENU pMenu){
 	printf("\n");
 	printf("%s\n", "________________________________________________________");
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -217,7 +218,7 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 	pszUserInput = (char*) malloc(MAX_BUFFER);
 	if(pszUserInput == NULL){
 		berror("Failed malloc to pszUserInput");
-		return ERROR;
+		return 1;
 	}
 
 	/* Enters infinite loop */
@@ -249,7 +250,7 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 	/* If the selected number is 0 the program always exits */
 	if(iSelection == 0){
 		printf("\nExiting ...\n");
-		return OK;
+		return 0;
 
 	/* Otherwise it executes the selection's action */
 	} else {
@@ -273,7 +274,7 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 		StartMenu(pMenu, szProgramName);
 	}
 
-	return ERROR;
+	return 1;
 }
 
 /*
@@ -286,7 +287,8 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	/* Declaring variables */
 	va_list vaPointers; 
-	int iStatus, iBuffer, i;
+	int iStatus = 0;
+	int iBuffer, i;
 	int *piArg = NULL;
 	char **pszArg = NULL, *pszBuffer = NULL;
 
@@ -295,6 +297,16 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 
 	/* Run for each argument */
 	for(i = 0; i < iArgC; i++){
+
+		/* Allocates buffer */
+		pszBuffer = (char *) malloc(MAX_INPUT);
+		if(pszBuffer == NULL){
+			iStatus = 1;
+			free(pszBuffer);
+			break;
+		}
+		pszBuffer[MAX_INPUT - 1] = '\0';
+
 		/* If type is string */
 		if(szTypeFlags[i] == 'S'){
 
@@ -305,21 +317,28 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 			pszArg = va_arg(vaPointers, char**);
 
 			/* Prompts for input */
-			fgets(*pszArg, MAX_INPUT, stdin);
+			fgets(pszBuffer, MAX_INPUT, stdin);
 			char c;
-			int i;
-			for(i = 0; i < 4; i++){
-				c = pszArg[i];
 
+			int i;
+			for(i = 0; i < strlen(pszBuffer); i++){
+				c = pszBuffer[i];
+
+				/* NOTE: Supposed to restrict from using any characters but regular letters and number.
+				 * However this is buggy and inconsistent. Not entirely sure why. */
 				if(!((58 > c && c > 47) ||
 					(91 > c && c > 64) ||
 					(123 > c && c > 96))){
-					iStatus = 1;
+
+					
+					return 1;
 				} 
 			}
 
 			/* Removes \n from string (with \r just in case) */
-			(*pszArg)[strcspn(*pszArg, "\r\n")] = 0;
+			pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
+
+			*pszArg = pszBuffer;
 
 			/* If type is int */
 		} else if(szTypeFlags[i] == 'I'){
@@ -330,7 +349,7 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 				/* Allocate to buffer */
 				pszBuffer = (char *) malloc(MAX_INPUT);
 				if(pszBuffer == NULL){
-					iStatus = ERROR;
+					iStatus = 1;
 					free(pszBuffer);
 					break;
 				}
@@ -345,11 +364,8 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 				/* Attempt to convert buffer into integer */
 				if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
 					*piArg = iBuffer;
-					free(pszBuffer);
 					break;
 				}
-				free(pszBuffer);
-
 			}
 		} else {
 			iStatus = 1;
@@ -357,14 +373,16 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 		}
 	}
 
-	iStatus = 0;
 	/* Ending va_list */
 	va_end(vaPointers);		
 
 	/* Cleanup */
 	pszArg = NULL;
+
+	free(pszBuffer);
 	pszBuffer = NULL;
 	piArg = NULL;
+
 	return iStatus;
 } 
 

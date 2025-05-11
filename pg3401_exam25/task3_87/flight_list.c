@@ -1,10 +1,12 @@
 /* 
  * TITLE: Flight list
  * AUTHOR: 87
- * DESCRIPTION:
+ * DESCRIPTION: Implementation of flight list as a combination of:
+ *		Doubly linked list (Flight list)
+ *		Sorted singly linked list (Passenger List)
+ *		
+ *		as a bonus, Dynamic array (one way) in UniquePassengers 
  * */
-
-
 #include "flight_list.h" 
 
 #include <stdio.h>
@@ -39,7 +41,7 @@ static PASSENGER *_CreatePassenger(char szName[], int iAge){
 
 	/* Verify input */
 	if(iNameLength > MAX_NAME){
-		bdebug("Name exceeds maximum characters.\n");
+		/*bdebug("Name exceeds maximum characters.\n"); */
 		return NULL;
 	}
 
@@ -51,7 +53,7 @@ static PASSENGER *_CreatePassenger(char szName[], int iAge){
 		return NULL;
 	}
 
-	/* Dynamically allocates name based on length. Since length is check above this is safe */
+	/* Dynamically allocates name based on length. Since length is checked above this is safe */
 	ppNew->pszName = (char *) malloc(iNameLength + 1);
 	if(ppNew->pszName == NULL){
 		free(ppNew);
@@ -83,7 +85,6 @@ static PASSENGER_NODE *_CreatePassengerNode(int iSeatNumber, PASSENGER *ppPassen
 	}
 
 	/* Initialize it */
-	//memset(ppnNew, 0, sizeof(PASSENGER_NODE));
 	ppnNew->ppPassenger = NULL;
 
 	/* Defaults seat number to invalid number */
@@ -927,7 +928,7 @@ int AddUniquePassenger(FLIGHT_LIST *pfl, char szName[], int iAge){
 		ppExtended = (PASSENGER **) malloc(sizeof(PASSENGER *) * (pfl->iUniquePassengers + 1));
 		if(ppExtended == NULL){
 			berror("Allocation to extended pointer failed.\n");
-			return ERROR;
+			return -1;
 		}
 
 		/* Copying old data to new ptr */
@@ -1171,7 +1172,6 @@ int PassengerListIsEmpty(FLIGHT_LIST *pfl, char szFlightID[]){
  * */
 int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDepartureTime[], char szDestination[]){
 	/* Declaring variables */
-	int iStatusCode = ERROR;
 	FLIGHT_NODE *pfNew = NULL;
 	
 	/* Checks if time is valid (HHMM) */
@@ -1218,7 +1218,6 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDepartureTime[], char szDest
 	if(pfl->pfnHead == NULL){
 		pfl->pfnHead = pfNew;
 		pfl->pfnTail = pfNew;
-		iStatusCode = 0;
 
 	} else {
 		/*  Newnode next ptr to current head */
@@ -1233,11 +1232,10 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDepartureTime[], char szDest
 
 	/* Increments the length of the list */
 	pfl->iLength++;
-	iStatusCode = OK;
 
 	/* Cleanup */
 	pfNew = NULL;
-	return iStatusCode;
+	return 0;
 }
 
 /*
@@ -1265,7 +1263,7 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
 	/* Attempts to add passenger to list */
 	ppNewPassenger = _GetUniquePassenger(pfl, szName);
 	if(ppNewPassenger == NULL){
-		perror("Passenger was not added in unique passenger list before adding to flight\n");
+		/*bdebug("Passenger was not added in unique passenger list before adding to flight\n"); */
 		return -1;
 	}
 
