@@ -286,11 +286,18 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
  * ... is the variables adresses, so that it assigns at the correct place. */
 int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	/* Declaring variables */
+	char *pszArg = NULL;
+	char *pszBuffer = NULL;
+	int *piArg = NULL;
 	va_list vaPointers; 
 	int iStatus = 0;
 	int iBuffer, i;
-	int *piArg = NULL;
-	char **pszArg = NULL, *pszBuffer = NULL;
+
+	/* Allocates buffer */
+	pszBuffer = (char *) malloc(MAX_INPUT);
+	if(pszBuffer == NULL){
+	}
+	pszBuffer[MAX_INPUT - 1] = '\0';
 
 	/* Start variadic args */
 	va_start(vaPointers, szTypeFlags);
@@ -298,81 +305,68 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	/* Run for each argument */
 	for(i = 0; i < iArgC; i++){
 
-		/* Allocates buffer */
-		pszBuffer = (char *) malloc(MAX_INPUT);
-		if(pszBuffer == NULL){
-			iStatus = 1;
-			free(pszBuffer);
-			break;
-		}
-		pszBuffer[MAX_INPUT - 1] = '\0';
 
 		/* If type is string */
 		if(szTypeFlags[i] == 'S'){
-
 			/* Prints message */
 			printf("%s\n", szArgMessages[i]);
 
 			/* Loads address to store data */
-			pszArg = va_arg(vaPointers, char**);
+			pszArg = va_arg(vaPointers, char *);
 
 			/* Prompts for input */
 			fgets(pszBuffer, MAX_INPUT, stdin);
-			char c;
 
+			/* NOTE: Supposed to restrict from using any characters but regular letters and number.
+			 * However this is buggy and inconsistent. Not entirely sure why. */ 
+			char c;
 			int i;
-			for(i = 0; i < strlen(pszBuffer); i++){
+
+			/* Removes \n from string (with \r just in case) */
+			pszBuffer[strcspn(pszBuffer, "\r\n")] = '\0';
+
+			for(i = 0; i < strlen(pszBuffer) + 1; i++){
 				c = pszBuffer[i];
 
-				/* NOTE: Supposed to restrict from using any characters but regular letters and number.
-				 * However this is buggy and inconsistent. Not entirely sure why. */
-				if(((58 > c && c > 47) ||
+				if(c == 0 ||
+					(58 > c && c > 47) ||
 					(91 > c && c > 64) ||
-					(123 > c && c > 96))){
-				} else {
+					(123 > c && c > 96)){
 
+				} else {
 					va_end(vaPointers);		
 					free(pszBuffer);
 					pszBuffer = NULL;
-					
 					return 1;
-
 				} 
 			}
 
-			/* Removes \n from string (with \r just in case) */
-			pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
-
-			*pszArg = pszBuffer;
+			strncpy(pszArg, pszBuffer, MAX_INPUT);
+			pszArg[MAX_INPUT - 1] = '\0';
 			iStatus = 0;
+			memset(pszBuffer, 0, MAX_INPUT);
 
 			/* If type is int */
 		} else if(szTypeFlags[i] == 'I'){
+
 			piArg = va_arg(vaPointers, int *);
 
 			/* Loops until we get correct input */
-			while(1){
-				/* Allocate to buffer */
-				pszBuffer = (char *) malloc(MAX_INPUT);
-				if(pszBuffer == NULL){
-					iStatus = 1;
-					free(pszBuffer);
-					break;
-				}
-				/* Print message to terminal */
-				printf("%s\n", szArgMessages[i]);
 
-				/* Get user input, load into buffer first */
-				fgets(pszBuffer, MAX_INPUT, stdin);
-				/* Remove newline from pressing enter */
-				pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
+			/* Print message to terminal */
+			printf("%s\n", szArgMessages[i]);
 
-				/* Attempt to convert buffer into integer */
-				if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
-					*piArg = iBuffer;
-					break;
-				}
+			/* Get user input, load into buffer first */
+			fgets(pszBuffer, MAX_INPUT, stdin);
+			/* Remove newline from pressing enter */
+			pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
+
+			/* Attempt to convert buffer into integer */
+			if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
+				*piArg = iBuffer;
+				break;
 			}
+
 		} else {
 			iStatus = 1;
 			break;
@@ -388,6 +382,7 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	free(pszBuffer);
 	pszBuffer = NULL;
 	piArg = NULL;
+
 	return iStatus;
 } 
 

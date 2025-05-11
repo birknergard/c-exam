@@ -516,6 +516,19 @@ static void _PrintPassengerList(PASSENGER_LIST *ppl){
 	ppnCurrent = NULL;
 }
 
+/* 
+ * Converts all the characters in a string to uppercase 
+ * */
+static void ToUppercase(char *pszString[]){
+	/* Sets lowercase letters to uppercase */
+	int i;
+	for(i = 0; i < 4; i++){
+		if(123 > (*pszString)[i] && (*pszString)[i] > 96){
+			(*pszString)[i] = (*pszString)[i] - 32;
+		}
+	}
+}
+
 /*
  * This function creates a new FLIGHT_NODE *, given its required data.
  * Also performs validation of arguments for added safety.
@@ -538,13 +551,6 @@ static FLIGHT_NODE *_CreateFlight(char szID[], int iDepartureTime, char szDestin
 		return NULL;
 	}
 
-	/* Sets lowercase letters to uppercase */
-	int i;
-	for(i = 0; i < 4; i++){
-		if(123 > szID[i] && szID[i] > 96){
-			szID[i] = szID[i] - 32;
-		}
-	}
 
 	/* Allocate new flight */
 	pfnCreated = (FLIGHT_NODE *) malloc(sizeof(FLIGHT_NODE));
@@ -666,12 +672,13 @@ int isValidFlightID(FLIGHT_LIST *pfl, char szFlightID[]){
 
 	FLIGHT_NODE *pfNew = NULL;
 
-
 	if(strlen(szFlightID) != 4){
 		printf("Invalid length. Needs to be 4 characters.");
 		return -1;
 	}
 
+	/* Sets lowercase letters to uppercase */
+	ToUppercase(&szFlightID);
 
 	if(pfl->pfnHead == NULL){
 		//bdebug("No flights registered\n");
@@ -681,20 +688,10 @@ int isValidFlightID(FLIGHT_LIST *pfl, char szFlightID[]){
 	/* Check if flight exists on that ID */
 	pfNew = _GetFlightByID(pfl, szFlightID);
 	if(pfNew != NULL){
-		printf("Flight already exists!\n\n");
+		bdebug("Flight exists!\n\n");
 		pfNew = NULL;
 		return 1;
-	}
-
-	/* Checks if characters are A-Z, a-z or 0-9 */
-	int i;
-	for(i = 0; i < 4; i++){
-		if(!((58 > (int) szFlightID[i] && (int) szFlightID[i] > 47) ||
-			(91 > (int) szFlightID[i] && (int) szFlightID[i] > 64) ||
-			(123 > (int) szFlightID[i] && (int) szFlightID[i] > 96))){
-			return -1;
-		} 
-	}
+	} 
 
 	return 0;
 }
@@ -830,7 +827,6 @@ static FLIGHT_NODE *_GetFlightByPosition(FLIGHT_LIST *pfl, int n){
 
 	/* Checks if N is out of bounds for the list */
 	if(n > pfl->iLength || n < 0){
-		berror("Position given is out of bounds.\n");
 		return NULL;
 	}
 
@@ -976,7 +972,6 @@ static PASSENGER *_GetUniquePassenger(FLIGHT_LIST *pfl, char szName[]){
 	/* If it doesnt find it, return NULL */
 	return NULL;
 }
-
 
 
 /*
@@ -1135,7 +1130,7 @@ int UniquePassengerExists(FLIGHT_LIST *pfl, char szPassengerName[]){
 	}
 
 	if(pfl->iUniquePassengers == 0){
-		return 1;
+		return 0;
 	}
 
 	/* Check every entry for the name */
@@ -1187,6 +1182,9 @@ int AddFlight(FLIGHT_LIST *pfl, char szID[], char szDepartureTime[], char szDest
 			return 1;
 		}
 	}
+
+	/* Sets lowercase letters to uppercase */
+	ToUppercase(&szID);
 
 	char szHours[3] = {0};
 	for(i = 0; i < 2; i++){
@@ -1248,6 +1246,8 @@ int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, c
 	PASSENGER *ppNewPassenger = NULL;
 	int iAddedPassenger;
 
+	ToUppercase(&szFlightID);
+
 	/* Retrieves a flight by its ID */
 	pfnFlight = _GetFlightByID(pfl, szFlightID);
 	if(pfnFlight == NULL){
@@ -1293,6 +1293,9 @@ int RemoveFlight(FLIGHT_LIST *pfl, char szID[]){
 		printf("You can't remove from an empty list.\n");
 		return ERROR;
 	}
+
+	/* Sets lowercase letters to uppercase */
+	ToUppercase(&szID);
 
 	/* Verifies existence of flight ID */
 	if((pfTarget = _GetFlightByID(pfl, szID)) == NULL){
@@ -1347,14 +1350,17 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
 	FLIGHT_NODE *pfnFlight = NULL;
 	int iSeatChanged = -1;
 
-	if(iNewSeat > MAX_SEATS || iNewSeat < 0){
-		printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iNewSeat, MAX_SEATS);
-		return 1;
-	}
+	/* Sets lowercase letters to uppercase */
+	ToUppercase(&szFlightID);
 
 	pfnFlight = _GetFlightByID(pfl, szFlightID);
 	if(pfnFlight == NULL){
 		printf("No flight exists on that ID.\n");
+		return 1;
+	}
+
+	if(iNewSeat > MAX_SEATS || iNewSeat < 0){
+		printf("%d is not a valid seat number. Needs to be a number between 0 and %d\n", iNewSeat, MAX_SEATS);
 		return 1;
 	}
 
