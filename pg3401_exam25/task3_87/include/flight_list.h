@@ -188,7 +188,7 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
 /*
  * Gets a list of every flight a passenger is booked to, returns the number of flights
  * */
-int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[], int iPrint);
 
 /*
  * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  

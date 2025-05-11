@@ -25,7 +25,7 @@ static int _ComparePassengers(PASSENGER *pp1, PASSENGER *pp2){
 
 		/* If the struct values are equal, return OK */
 		if(strcmp(pp1->pszName, pp2->pszName) == 0
-				&& pp1->iAge == pp2->iAge) return OK;
+				&& pp1->iAge == pp2->iAge) return 0;
 
 		return 1;
 	}
@@ -127,11 +127,6 @@ static int _DestroyPassengerNode(PASSENGER_NODE *ppn){
 	if(ppn == NULL){
 		berror("Cannot free null pointer.\n");	
 		return -1;
-	}
-
-	/* For debugging */
-	if(ppn->ppPassenger == NULL){
-		berror("Passenger node contains no passenger data.");
 	}
 
 	/* Release connected node if exists, and destroy passenger data */
@@ -688,7 +683,6 @@ int isValidFlightID(FLIGHT_LIST *pfl, char szFlightID[]){
 	/* Check if flight exists on that ID */
 	pfNew = _GetFlightByID(pfl, szFlightID);
 	if(pfNew != NULL){
-		bdebug("Flight exists!\n\n");
 		pfNew = NULL;
 		return 1;
 	} 
@@ -1090,7 +1084,7 @@ int PrintFlightListSimple(FLIGHT_LIST *pfl){
 	int n = 1;
 
 	if(pfl->iLength == 0){
-		printf("NO FLIGHTS AVAILABLE\n\n");
+		printf("No flights available.\n\n");
 		return 1;
 	}
 
@@ -1158,8 +1152,11 @@ int PassengerListIsEmpty(FLIGHT_LIST *pfl, char szFlightID[]){
 
 	/* Checking both head and tracker for redundancy */
 	if(pfnFlight->pfdData->pplPassengers->ppnHead == NULL && pfnFlight->pfdData->pplPassengers->iLength == 0){
-		return 0;
-	} return 1;
+		return 1;
+	} 
+
+	pfnFlight = NULL;
+	return 0;
 }
 
 /*
@@ -1382,40 +1379,40 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
 /*
  * 7. Gets a list of every flight a passenger is booked to, returns the number of flights
  * */
-int GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
+int GetPassengersFlights(FLIGHT_LIST *pfl, char szName[], int iPrint){
 	/* Declare variables */
 	FLIGHT_NODE *pfnCurrentFlight = NULL;
-	PASSENGER_NODE *ppnPassenger = NULL;
+	PASSENGER *ppPassenger = NULL;
 	int iFlightsFound = 0;
 
+
 	/* Checks if passenger exists */
-	if(_PassengerExists(pfl, szName) != 0){
+	if(UniquePassengerExists(pfl, szName) != 1){
 		/* Since the passenger has no flights, we return the initialized value (0) */
 		return iFlightsFound;
 	};
+
+	ppPassenger = _GetUniquePassenger(pfl, szName);
+
+	if(iPrint == 1) printf("Displaying lists of flights for %s:\n", szName);
 
 	/* Traverse the whole flight list, printing every flight that the passenger is a part of */
 	pfnCurrentFlight = pfl->pfnHead;
 	while(pfnCurrentFlight != NULL){
 
 		/* Traverse the passenger list, printing when finding match to input name */
-		ppnPassenger = pfnCurrentFlight->pfdData->pplPassengers->ppnHead;
-		while(ppnPassenger != NULL){
-			/* Since we verified the name with _PassengerExists we can just refer with the name here */ 
-			if(strcmp(ppnPassenger->ppPassenger->pszName, szName) == 0){
-				iFlightsFound++;
-				if(iFlightsFound > 1){
-					_PrintFlightSimple(pfnCurrentFlight);
-				}
+		if(_GetPassengerNode(pfnCurrentFlight->pfdData->pplPassengers, ppPassenger) != NULL){
+			iFlightsFound++;
+			if(iFlightsFound > 0 && iPrint == 1){
+				_PrintFlightSimple(pfnCurrentFlight);
 			}
-			ppnPassenger = ppnPassenger->ppnNext;
 		}
 		pfnCurrentFlight = pfnCurrentFlight->pfnNext;
 	}
 
 	/* Cleanup */
 	pfnCurrentFlight = NULL;
-	ppnPassenger = NULL;
+	ppPassenger = NULL;
 
 	return iFlightsFound;
 }
@@ -1427,8 +1424,6 @@ int GetPassengersFlights(FLIGHT_LIST *pfl, char szName[]){
 int PrintPassengersWithMultipleFlights(FLIGHT_LIST *pfl){
 	/* Declaring variables and initializing pointers */
 	int i, iNumberOfFlights, iPersonPrinted;
-	FLIGHT_NODE *pfnCurrentFlight = NULL;
-	PASSENGER_NODE *ppnCurrentPassenger = NULL;
 
 	/* If these two trackers are low enough there is no point in executing */
 	if(pfl->iUniquePassengers == 0){
@@ -1445,31 +1440,15 @@ int PrintPassengersWithMultipleFlights(FLIGHT_LIST *pfl){
 	/* Checks for every unique passenger */
 	for(i = 0; i < pfl->iUniquePassengers; i++){
 		/* Initialize to 0, will person is on flight if match is found */
-		iNumberOfFlights = 0;
+		iNumberOfFlights = GetPassengersFlights(pfl, pfl->arrppUniquePassengers[i]->pszName, 0);
 
-		/* Starting at head, check every flight ... */
-		pfnCurrentFlight = pfl->pfnHead;
-		while(pfnCurrentFlight != NULL){
-			/* then start at head of that passenger list, and check every passenger for a match */
-			ppnCurrentPassenger = pfnCurrentFlight->pfdData->pplPassengers->ppnHead;
-			while(ppnCurrentPassenger != NULL){
-				/* If we find a match we increment the tracker */
-				if(_ComparePassengers(pfl->arrppUniquePassengers[i], ppnCurrentPassenger->ppPassenger) == 0){
-					iNumberOfFlights++;
-				}
-
-				ppnCurrentPassenger = ppnCurrentPassenger->ppnNext;
-			}
-
-			pfnCurrentFlight = pfnCurrentFlight->pfnNext;
-
-			/* If a person was has more than 1 flight we print, and edit the return value to indicate this */
-			if(iNumberOfFlights > 1){
-				printf("-> %s is booked to %d flights!\n", ppnCurrentPassenger->ppPassenger->pszName, iNumberOfFlights);
-				iPersonPrinted = 1;
-			}
+		/* If a person was has more than 1 flight we print, and edit the return value to indicate this */
+		if(iNumberOfFlights > 1){
+			printf("-> %s is booked to %d flights!\n", pfl->arrppUniquePassengers[i]->pszName, iNumberOfFlights);
+			iPersonPrinted = 1;
 		}
 	}
+
 	if(iPersonPrinted > 0) return 0;
 	else return 1;
 }

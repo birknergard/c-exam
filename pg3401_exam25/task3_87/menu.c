@@ -325,6 +325,13 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 			/* Removes \n from string (with \r just in case) */
 			pszBuffer[strcspn(pszBuffer, "\r\n")] = '\0';
 
+			if(strlen(pszBuffer) == 0){
+					va_end(vaPointers);		
+					free(pszBuffer);
+					pszBuffer = NULL;
+					return 1;
+			}
+
 			for(i = 0; i < strlen(pszBuffer) + 1; i++){
 				c = pszBuffer[i];
 
