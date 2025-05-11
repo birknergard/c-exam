@@ -1079,7 +1079,7 @@ static int _PrintFlightSimple(FLIGHT_NODE *pf){
 /*
  * Same function as PrintFlightList except with less information per flight
  * */
-int PrintFlightListSimple(FLIGHT_LIST *pfl){
+int PrintFlightListSimple(FLIGHT_LIST *pfl, int iWithNumber){
 	FLIGHT_NODE *pfnCurrent = NULL; 
 	int n = 1;
 
@@ -1092,7 +1092,7 @@ int PrintFlightListSimple(FLIGHT_LIST *pfl){
 	pfnCurrent = pfl->pfnHead;
 
 	while(pfnCurrent != NULL){
-		printf("%d) ", n);   
+		if(iWithNumber == 1) printf("%d) ", n);   
 		_PrintFlightSimple(pfnCurrent);
 
 		/* Checks next flight */

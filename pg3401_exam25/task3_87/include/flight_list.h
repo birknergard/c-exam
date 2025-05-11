@@ -8,14 +8,13 @@
 *  the linked list for holding unique passengers. I can hope this does not decrease my
 *  grading as I could not resist making it.
 *
-*  It additionaly handles all of the operation that is required from the task.
 *  I have provided some documentation in this file, particularly for justifying
-*  high level design decisions. For more fine grained documentation I refer the
-*  evaluator to the source file "flight_list.c".
+*  high level design decisions. For more fine grained documentation I refer
+*  to the source file "flight_list.c".
 *  
 *  All functions in the API refer to the same struct * (created by CreateFlightList)
 *  to prevent confusion. I attempted to only use a pointer reference when i wanted to
-*  change the data but the code ended up being confusing and inconsistent.
+*  change the data but the code ended making utilization of the API confusing and bug prone.
 *
 *  It was originally split between two linked list data structures:
 *  1. FLIGHT_LIST (doubly linked)  
@@ -24,10 +23,12 @@
 *  I originally created the program with the two separated, but this ended up in a lot of
 *  confusing encapsulation and increasing difficulty in keeping track of the state.
 *
-*  Im very conscious of how complex this API is internally. I added more moving parts than
-*  was really necessary for this task. I hope that the added complexity displays my
-*  comfort with the programming language this kind of implementation. If I deviated too heavily
-*  from the task and that lead to lost marks I would love to know when the evaluation comes.
+*  Im aware of how complex this API is internally. I added more moving parts than
+*  perhaps was really necessary for this task, however I hope that the added complexity displays my
+*  comfort with the programming language.
+*
+*  If I deviated too heavily from the task and that lead to lost marks,
+*  I would love to know when the evaluation comes.
 --------------------------------------------------*/
 #ifndef ___FLIGHT_LIST_H___ 
 #define ___FLIGHT_LIST_H___  
@@ -156,7 +157,7 @@ int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]);
  * */
 int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
-int PrintFlightListSimple(FLIGHT_LIST *pfl);
+int PrintFlightListSimple(FLIGHT_LIST *pfl, int iWithNumber);
 
 /*
  * Inserts a new flight at the head of the flight list 

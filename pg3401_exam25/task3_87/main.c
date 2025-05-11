@@ -74,7 +74,7 @@ void OptOne(void *vpflFlightList){
 
     puts("CURRENT FLIGHT LIST\n");
 
-    PrintFlightListSimple(pflFlightList);
+    PrintFlightListSimple(pflFlightList, 0);
 
     printf("%s\n\n", "________________________________________________________");
 
@@ -166,10 +166,11 @@ void OptTwo(void *vpflFlightList){
     int iInputValid = 0;
 
     /* Print flight list */
-    printf("Here are the current flights in the list\n");
-    if(PrintFlightListSimple(pflFlightList) == 1){
+    printf("Here are the current flights in the list\n\n");
+    if(PrintFlightListSimple(pflFlightList, 0) == 1){
 	return;
     }
+    puts("\n");
 
     pszFlightID = (char *) malloc(MAX_INPUT);
     if(pszFlightID == NULL){
@@ -263,7 +264,6 @@ void OptTwo(void *vpflFlightList){
 
 /*
  * Option 3: Retrieve flight N from the list and print all data associated
- * TODO: Make initial print not print flight ids like that for clarity
  * */
 void OptThree(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
@@ -271,7 +271,7 @@ void OptThree(void *vpflFlightList){
     int iInputValid;
 
     printf("Here are the current flights in the list\n");
-    if(PrintFlightListSimple(pflFlightList) == 1){
+    if(PrintFlightListSimple(pflFlightList, 1) == 1){
 	pflFlightList = NULL;
 	return;
     }
@@ -346,7 +346,7 @@ void OptFive(void *vpflFlightList){
 
 
     printf("Here are the current flights in the list\n");
-    if(PrintFlightListSimple(pflFlightList) == 1){
+    if(PrintFlightListSimple(pflFlightList, 0) == 1){
 	pflFlightList = NULL;
 	return;
     }
@@ -404,7 +404,7 @@ void OptSix(void *vpflFlightList){
     }
 
     printf("Here are the current flights in the list\n");
-    if(PrintFlightListSimple(pflFlightList) == 1){
+    if(PrintFlightListSimple(pflFlightList, 0) == 1){
 	pflFlightList = NULL;
 	return;
     }

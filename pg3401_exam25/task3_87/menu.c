@@ -1,3 +1,8 @@
+/* 
+ * TITLE: MENU 
+ * AUTHOR: 87
+ * DESCRIPTION: A simple menu and program runtime API.
+ * */
 #include "menu.h"
 
 #include <stdio.h>
@@ -350,6 +355,15 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 
 			strncpy(pszArg, pszBuffer, MAX_INPUT);
 			pszArg[MAX_INPUT - 1] = '\0';
+
+			/* Ensures function does not return empty data */
+			if(pszBuffer == 0){
+				va_end(vaPointers);		
+				free(pszBuffer);
+				pszBuffer = NULL;
+				return 1;
+			}
+
 			iStatus = 0;
 			memset(pszBuffer, 0, MAX_INPUT);
 
@@ -357,8 +371,6 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 		} else if(szTypeFlags[i] == 'I'){
 
 			piArg = va_arg(vaPointers, int *);
-
-			/* Loops until we get correct input */
 
 			/* Print message to terminal */
 			printf("%s\n", szArgMessages[i]);
@@ -370,6 +382,15 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 
 			/* Attempt to convert buffer into integer */
 			if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
+
+				/* Ensures function does not return empty data */
+				if(iBuffer == 0){
+					va_end(vaPointers);		
+					free(pszBuffer);
+					pszBuffer = NULL;
+					return 1;
+				}
+
 				*piArg = iBuffer;
 				break;
 			}
