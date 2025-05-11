@@ -175,13 +175,14 @@ int main(int iArgC, char **arrpszArgV){
 
 
       /*-------------RECIEVING FILE--------------*/
+      printf("Content length %d\n", iContentLength);
 
       /* Allocating struct to hold response. Divided into the header (string array) and encrypted message (long array) */
       ENC_REQUEST reRequest;
       reRequest.szHeader = NULL;
       reRequest.arrlEncrypted = NULL;
 
-      reRequest.szHeader = (unsigned char *) malloc(iHeaderLength);
+      reRequest.szHeader = (unsigned char *) malloc(iHeaderLength + 1);
       if(reRequest.szHeader == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
@@ -251,8 +252,8 @@ int main(int iArgC, char **arrpszArgV){
       reRequest.szHeader = NULL;
       free(reRequest.arrlEncrypted);
       reRequest.arrlEncrypted = NULL;
-   
       close(sockClient);
+      
       sockClient = -1;
    }
 
@@ -428,7 +429,7 @@ int main(int iArgC, char **arrpszArgV){
          }
       }
    }
-      
+
    printf("Sizeof BY %ld\n", sizeof(BYTE));
    printf("Sizeof BY8 %ld\n", sizeof(BY8));
    printf("Sizeof BY4 %ld", sizeof(BY4));
