@@ -13,10 +13,10 @@ CFLAGS += -Wall
 
 OBJDIR = obj
 
-_DEPS = debug.h util.h flight_list.h menu.h main.h
+_DEPS = debug.h flight_list.h menu.h main.h
 DEPS = $(patsubst %,$(INCLDIR)/%,$(_DEPS))
 
-_OBJS = debug.o util.o flight_list.o menu.o main.o  
+_OBJS = debug.o flight_list.o menu.o main.o  
 OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
