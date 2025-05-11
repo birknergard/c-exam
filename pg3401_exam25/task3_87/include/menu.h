@@ -14,6 +14,9 @@
 #define TITLE_BUFFER 256
 #define MAX_BUFFER 1024
 
+#define MAX_STRING_SIZE 10
+#define MAX_INPUT 1024
+
 #pragma pack(1)
 typedef struct _OPTION {
 	char *pszTitle;
@@ -33,11 +36,38 @@ typedef struct _MENU {
 							 In this submission it holds the FLIGHT_LIST structure for flight_list.h :) */
 } MENU;
 
-
+/*
+ * Initializes and empty menu struct.
+ * Takes a state object as void * as parameter 
+ * */
 MENU *CreateMenu(void *vpStruct);
+
+/*
+ * Adds an optionable action to the menu struct. Stored in a dynamic array.
+ * */
 int AddOption(MENU *pMenu, char *szTitle, void (*funcAction)());
+
+
+/*
+ * Starts the menu program with the menu struct.
+ * */
 int StartMenu(MENU *pMenu, char szProgramName[]);
+
+/*
+ * Deallocates / destroys struct
+ * */
 int DestroyMenu(MENU *pMenu);
+
+
+/*
+ * Takes input based on flags given.
+ * */
+int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ... );
+
+/*
+ * Converts a string to a POSITIVE integer. Used when selecting menu options.
+ * */
+int ParsePositiveInteger(char *psz);
 
 
 #endif /*ndef ___MENU_H___ */

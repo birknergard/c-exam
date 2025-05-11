@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "debug.h"
-#include "util.h"
 
 /*
  * Internal function for creating menu options. Takes a string and a function pointer.
@@ -77,7 +77,7 @@ MENU *CreateMenu(void *vpStruct){
 /*
  *  Adds an option to the menu. 
  *  It requires the menu struct as a pointer, 
- *  a title (string) and a function(ptr) which runs the option.
+ *  a title (string) and a function(ptr) which runs the options
  * */
 int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	/* Declaring variables */
@@ -90,7 +90,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	/* Creates a new option, checks if valid (function takes care of logging) */ 
 	pNewOption = _CreateOption(szTitle, vfAction);
 	if(pNewOption == NULL){
-		return ERROR;
+		return 1;
 	}
 
 	/* Holds the optioncount in menu directly through int pointer 
@@ -103,7 +103,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 		/* Allocate pointer pointer */
 		pMenu->pOptions = (OPTION **) malloc(sizeof(OPTION *));
 		if(pMenu->pOptions == NULL){
-			return ERROR;
+			return 1;
 		}
 		/* Bitwise copy initial option address to new option */
 		pMenu->pOptions[0] = pNewOption;
@@ -137,7 +137,7 @@ int AddOption(MENU *pMenu, char szTitle[], void (*vfAction)(void *vfStruct)){
 	piOptionCount = NULL;
 	pNewOption = NULL;
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -165,7 +165,7 @@ int DestroyMenu(MENU *pMenu){
 	free(pMenu->pOptions);
 	free(pMenu);
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -173,8 +173,9 @@ int DestroyMenu(MENU *pMenu){
  *	out of bounds selections is handled by StartMenu
  * */
 static int _ExecuteAction(MENU pMenu, int iSelection){
+
 	pMenu.pOptions[iSelection - 1]->vfAction(pMenu.vpStruct);
-	return OK;
+	return 0;
 }
 
 /*
@@ -189,10 +190,10 @@ static int _DisplayOptions(MENU pMenu){
 	/* EXIT is a default option, and so it is displayed regardless */
 	printf("%2d) %s\n", 0, "EXIT");
 	
-	printf("\n\n");
-	printf("%s\n\n", "________________________________________________________");
+	printf("\n");
+	printf("%s\n", "________________________________________________________");
 
-	return OK;
+	return 0;
 }
 
 /*
@@ -202,24 +203,22 @@ static int _DisplayOptions(MENU pMenu){
 int StartMenu(MENU *pMenu, char szProgramName[]){
 	/* Declaring variables, as well as a guiding description */
 	int iSelection;
-	char szDesc[] = "Below is a list of options.\nYou select an option by entering its number in the terminal.";
 	char *pszUserInput = NULL; 
 
 	/* Starts by clearing the terminal */
 	system("clear");
 
-	/* Printing title and description */
-	printf("\n\nWelcome to %s!\n\n", szProgramName);
-	printf("%s\n", szDesc);
 
 	/* Displays options */
+	printf("%s\n", szProgramName);
 	_DisplayOptions(*pMenu);
+	printf("ENTER YOUR SELECTION (1 -> %d) or 0 to quit.\n", pMenu->iOptionCount);
 
 	/* Allocates to input buffer */
 	pszUserInput = (char*) malloc(MAX_BUFFER);
 	if(pszUserInput == NULL){
 		berror("Failed malloc to pszUserInput");
-		return ERROR;
+		return 1;
 	}
 
 	/* Enters infinite loop */
@@ -251,11 +250,14 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 	/* If the selected number is 0 the program always exits */
 	if(iSelection == 0){
 		printf("\nExiting ...\n");
-		return OK;
+		return 0;
 
 	/* Otherwise it executes the selection's action */
 	} else {
 		system("clear");
+
+		printf("%s\n", szProgramName);
+		printf("%s\n\n", "________________________________________________________");
 		_ExecuteAction(*pMenu, iSelection);	
 
 		/* Once the function is completed, prompt the user for input to return to menu ... */
@@ -272,6 +274,144 @@ int StartMenu(MENU *pMenu, char szProgramName[]){
 		StartMenu(pMenu, szProgramName);
 	}
 
-	return ERROR;
+	return 1;
+}
+
+/*
+ * This function gets input from user and assigns it to given variable pointers
+ *
+ * iArgs is number of variables to set 
+ * szArgMsg is an array of strings, where each string is the message to print when asking for input 
+ * szTypeFlags is a string with each arguments type. compatible with *string and *int. example input = "SSII"
+ * ... is the variables adresses, so that it assigns at the correct place. */
+int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
+	/* Declaring variables */
+	char *pszArg = NULL;
+	char *pszBuffer = NULL;
+	int *piArg = NULL;
+	va_list vaPointers; 
+	int iStatus = 0;
+	int iBuffer, i;
+
+	/* Allocates buffer */
+	pszBuffer = (char *) malloc(MAX_INPUT);
+	if(pszBuffer == NULL){
+	}
+	pszBuffer[MAX_INPUT - 1] = '\0';
+
+	/* Start variadic args */
+	va_start(vaPointers, szTypeFlags);
+
+	/* Run for each argument */
+	for(i = 0; i < iArgC; i++){
+
+
+		/* If type is string */
+		if(szTypeFlags[i] == 'S'){
+			/* Prints message */
+			printf("%s\n", szArgMessages[i]);
+
+			/* Loads address to store data */
+			pszArg = va_arg(vaPointers, char *);
+
+			/* Prompts for input */
+			fgets(pszBuffer, MAX_INPUT, stdin);
+
+			/* NOTE: Supposed to restrict from using any characters but regular letters and number.
+			 * However this is buggy and inconsistent. Not entirely sure why. */ 
+			char c;
+			int i;
+
+			/* Removes \n from string (with \r just in case) */
+			pszBuffer[strcspn(pszBuffer, "\r\n")] = '\0';
+
+			for(i = 0; i < strlen(pszBuffer) + 1; i++){
+				c = pszBuffer[i];
+
+				if(c == 0 ||
+					(58 > c && c > 47) ||
+					(91 > c && c > 64) ||
+					(123 > c && c > 96)){
+
+				} else {
+					va_end(vaPointers);		
+					free(pszBuffer);
+					pszBuffer = NULL;
+					return 1;
+				} 
+			}
+
+			strncpy(pszArg, pszBuffer, MAX_INPUT);
+			pszArg[MAX_INPUT - 1] = '\0';
+			iStatus = 0;
+			memset(pszBuffer, 0, MAX_INPUT);
+
+			/* If type is int */
+		} else if(szTypeFlags[i] == 'I'){
+
+			piArg = va_arg(vaPointers, int *);
+
+			/* Loops until we get correct input */
+
+			/* Print message to terminal */
+			printf("%s\n", szArgMessages[i]);
+
+			/* Get user input, load into buffer first */
+			fgets(pszBuffer, MAX_INPUT, stdin);
+			/* Remove newline from pressing enter */
+			pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
+
+			/* Attempt to convert buffer into integer */
+			if((iBuffer = ParsePositiveInteger(pszBuffer)) > -1){
+				*piArg = iBuffer;
+				break;
+			}
+
+		} else {
+			iStatus = 1;
+			break;
+		}
+	}
+
+	/* Ending va_list */
+	va_end(vaPointers);		
+
+	/* Cleanup */
+	pszArg = NULL;
+
+	free(pszBuffer);
+	pszBuffer = NULL;
+	piArg = NULL;
+
+	return iStatus;
+} 
+
+/*
+ * Takes a string and attempts to convert it to a positive integer
+ * Returns a positive integer on success, negative on fail
+ * */
+int ParsePositiveInteger(char *psz){
+	int iNum, iLen, i;
+
+	iLen = strlen(psz);
+	/* Check ceiling */
+	if(iLen >= MAX_STRING_SIZE){
+		berror("Input is too large. (MAX: 128 bytes)");
+		return -1;	
+	}
+
+	/* Check each char if digit */
+	i = 0;
+	while(i < iLen){
+		if(isdigit(psz[i]) == 0){
+			return -1;	
+		}
+		i++;
+	}
+
+	/* Uses atoi to convert it */
+	iNum = atoi(psz);
+
+	return iNum;
 }
 

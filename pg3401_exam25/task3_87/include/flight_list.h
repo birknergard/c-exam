@@ -100,7 +100,7 @@ typedef struct _FLIGHT_LIST {
    FLIGHT_NODE *pfnHead;
    FLIGHT_NODE *pfnTail;
 
-   /* ppp = (arr)ay (p)ointer (p)assenger */ 
+   /* arrpp = (arr)ay (p)ointer (p)assenger */ 
    PASSENGER **arrppUniquePassengers;
    /*Holds every unique PASSENGER * in a dynamic array of pointers,
     to prevent duplicates and make some tasks easier */
@@ -119,12 +119,12 @@ FLIGHT_LIST *CreateFlightList();
 /*
  * Destroys a flight list created with CreateFlightList
  * */
-int DestroyFlightList(FLIGHT_LIST *ppfl);
+int DestroyFlightList(FLIGHT_LIST *pfl);
 
 /*
  * Verifies flight id is 4 characters long
  * */
-int isValidFlightID(char szFlightID[]);
+int isValidFlightID(FLIGHT_LIST *pfl, char szFlightID[]);
 
 /*
  * Checks the unique passenger list for whether a name exists
@@ -137,28 +137,12 @@ int UniquePassengerExists(FLIGHT_LIST *pfl, char szPassengerName[]);
  * */
 int AddUniquePassenger(FLIGHT_LIST *pfl, char szName[], int iAge);
 
-/*
- * Inserts a new flight at the head of the flight list 
- * Makes sure that no two flights have the same id, and that the ID is only 4 characters.
- * Also makes sure destination name string is within MAX_DESTINATION bounds.
- * */
-int AddFlight(FLIGHT_LIST *pfl, char *szID, int iDepartureTime, char szDestination[]);
-
-/*
- * Removes and deletes a flight from the flight list
- * Takes a flight ID as parameter and makes sure it exists.
- * */
-int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
 /*
  * Checks whether a flight has an empty passenger list
  * */
 int PassengerListIsEmpty(FLIGHT_LIST *pfl, char szFlightID[]);
-/*
- * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
- * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
- * */
-int PrintFlightsByDestination(FLIGHT_LIST *pfl, char szDestination[]);
+
 
 /* 
  * Prints all the passengers of a flight to the terminal 
@@ -172,7 +156,14 @@ int PrintPassengers(FLIGHT_LIST *pfl, char szFlightID[]);
  * */
 int PrintFlight(FLIGHT_LIST *pfl, int n);
 void PrintFlightList(FLIGHT_LIST *pfl);
-void PrintFlightListSimple(FLIGHT_LIST *pfl);
+int PrintFlightListSimple(FLIGHT_LIST *pfl);
+
+/*
+ * Inserts a new flight at the head of the flight list 
+ * Makes sure that no two flights have the same id, and that the ID is only 4 characters.
+ * Also makes sure destination name string is within MAX_DESTINATION bounds.
+ * */
+int AddFlight(FLIGHT_LIST *pfl, char *szID, char szDepartureTime[], char szDestination[]);
 
 /*
  * Adds a passenger to a flight (given its Flight ID). 
@@ -181,6 +172,12 @@ void PrintFlightListSimple(FLIGHT_LIST *pfl);
  * through the AddUniquePassenger function
  * */
 int AddPassengerToFlight(FLIGHT_LIST *pfl, char szFlightID[], int iSeatNumber, char szName[]);
+
+/*
+ * Removes and deletes a flight from the flight list
+ * Takes a flight ID as parameter and makes sure it exists.
+ * */
+int RemoveFlight(FLIGHT_LIST *pfl, char szID[]);
 
 /*
  * Changes the seat of a passenger. 
@@ -192,6 +189,12 @@ int ChangePassengerSeat(FLIGHT_LIST *pfl, char szFlightID[], char szName[], int 
  * Gets a list of every flight a passenger is booked to, returns the number of flights
  * */
 int GetPassengersFlights(FLIGHT_LIST *pfl, char szPassengerName[]);
+
+/*
+ * Function for point four in the task description. Takes the FLIGHT_LIST, and a destination string.  
+ * If any flights have that destination the number (n) is returned. Otherwise it returns -1.
+ * */
+int PrintFlightsByDestination(FLIGHT_LIST *pfl, char szDestination[]);
 
 /*
  * Checks every flight and prints every passenger that is booked to more than one flight.

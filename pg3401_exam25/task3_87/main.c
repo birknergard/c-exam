@@ -11,7 +11,6 @@
 #include <stdlib.h>
 
 #include "debug.h"
-#include "util.h"
 #include "menu.h"
 #include "flight_list.h"
 
@@ -34,8 +33,7 @@ int main(void){
 	berror("Error with menu creation.\n");
 	iStatus = ERROR;
     } else {
-	/* for testing :) */
-	AddOption(pMenu, "Add flight", OptOne);
+	AddOption(pMenu, "Add a flight", OptOne);
 	AddOption(pMenu, "Add passenger to flight", OptTwo);
 	AddOption(pMenu, "Display flight", OptThree);
 	AddOption(pMenu, "Find flight number by destination", OptFour);
@@ -44,61 +42,13 @@ int main(void){
 	AddOption(pMenu, "Find which flights passenger is on", OptSeven);
 	AddOption(pMenu, "View passengers multiple booked flights", OptEight);
 
-	AddFlight(pflFlights, "HH11", 1234, "Korea");
-
-	bdebug("Test->Adding duplicate flight ...\n");
-	AddFlight(pflFlights, "HH11", 1234, "Korea");
-	AddFlight(pflFlights, "HH11", 3265, "Norway");
-
-	bdebug("Test->Adding some more flights\n");
-	AddFlight(pflFlights, "KK11", 1234, "NOrway");
-	AddFlight(pflFlights, "1123", 1234, "India");
-	AddFlight(pflFlights, "KEK1", 1234, "Japan");
-
-	/* Removing flight */
-	bdebug("Test->Removing flight\n");
-	RemoveFlight(pflFlights, "1123");
-	/* Adding again */
-	bdebug("Removing flight\n");
-	AddFlight(pflFlights, "1123", 1234, "India");
-
-	bdebug("Test->Adding passengers ...\n");
-	AddUniquePassenger(pflFlights, "Marius", 26);
-	AddUniquePassenger(pflFlights, "Marte", 20);
-	AddUniquePassenger(pflFlights, "Bengt", 37);
-
-	AddPassengerToFlight(pflFlights, "HH11", 26, "Marius");
-	AddPassengerToFlight(pflFlights, "HH11", 1, "Marte");
-	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt");
-
-	bdebug("Attempt to add passenger not in unique flight list\n");
-	AddPassengerToFlight(pflFlights, "HH11", 50, "NONAME");
-
-	bdebug("Test->Adding duplicate passenger to HH11\n");
-	AddPassengerToFlight(pflFlights, "HH11", 5, "Bengt");
-
-	bdebug("Test->Adding known passenger to another flight\n");
-	AddPassengerToFlight(pflFlights, "1123", 2, "Bengt");
-
-	
-	bdebug("Test-> Printing whole flight list");
-	PrintFlightListSimple(pflFlights);
-
-	bdebug("Test-> Change seat of passenger");
-	ChangePassengerSeat(pflFlights, "HH11", "Marius", 3);
-
-	bdebug("Test-> Change seat of passenger to one that is taken");
-	ChangePassengerSeat(pflFlights, "HH11", "Marius", 26);
-	ChangePassengerSeat(pflFlights, "HH11", "Marius", 5);
-
-	bdebug("Test-> Change seat of passenger to one that is out of bounds");
-	ChangePassengerSeat(pflFlights, "HH11", "Marius", 65);
-
 	/* Removing flight with passengers*/
+	/*
 	bdebug("Removing flight with passengers");
 	RemoveFlight(pflFlights, "HH11");
 
-	iStatus = StartMenu(pMenu, "Task 3");
+	*/
+	iStatus = StartMenu(pMenu, "\nTASK 3 - FLIGHT CREATOR");
     }
 
     /* Destroy structs */	
@@ -118,42 +68,76 @@ int main(void){
 void OptOne(void *vpflFlightList){
     /* Declaring variables */
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
-    char *pszID = NULL, *pszDestination = NULL;
-    int iDepartureTime = -1;
+    char *pszID = NULL, *pszDestination = NULL, *pszDepartureTime = NULL;
     int iFlightAdded;
+    int iInputValid;
 
-    puts("Current Flight List");
+    puts("CURRENT FLIGHT LIST\n");
+
     PrintFlightListSimple(pflFlightList);
 
-    pszID = (char *) malloc(MAX_INPUT);
-    if(pszID == NULL) 
-	return;
+    printf("%s\n\n", "________________________________________________________");
 
-    pszDestination = (char *) malloc(MAX_INPUT);
-    if(pszDestination == NULL){
-	free(pszID);
-	pszID = NULL;
+    pszID = (char *) malloc(MAX_INPUT);
+    if(pszID == NULL){
+	pflFlightList = NULL;
 	return;
     }
 
+
     /* Ask for FLIGHT ID */
-    GetInput(1, (char *[]) {
+    iInputValid = GetInput(1, (char *[]) {
 	"Enter a new flight ID. has to be exactly 4 characters",
-	}, (char *) "S", &pszID
+	}, (char *) "S", pszID
     );
+    if(iInputValid != 0){
+	printf("Invalid input.\n");
+	free(pszID);
+	pszID = NULL;
+	pflFlightList = NULL;
+	return;
+    } 
 
     /* Validates */
-    if(isValidFlightID(pszID) == 0){
+    if(isValidFlightID(pflFlightList, pszID) == 0){
+	pszDestination = (char *) malloc(MAX_INPUT);
+	if(pszDestination == NULL){
+	    free(pszID);
+	    pszID = NULL;
+	    pflFlightList = NULL;
+	    return;
+	}
+
+	pszDepartureTime = (char *) malloc(MAX_INPUT);
+	if(pszDepartureTime == NULL){
+	    free(pszID);
+	    pszID = NULL;
+	    free(pszDestination);
+	    pszDestination = NULL;
+	    pflFlightList = NULL;
+	    return;
+	}
 	/* If that is validated, ask for remaining data */
-	GetInput(2, (char *[]) {
+	iInputValid = GetInput(2, (char *[]) {
 	    "Enter the flights destination name:",
 	    "Enter the flights departure time (\'HHMM\', example: 1705):",
-	    }, (char *) "SI", pszDestination, &iDepartureTime 
+	    }, (char *) "SS", pszDestination, pszDepartureTime 
 	);
+	if(iInputValid != 0){
+	    printf("Invalid input.\n");
+	    free(pszID);
+	    pszID = NULL;
+	    free(pszDestination);
+	    pszDestination = NULL;
+	    free(pszDepartureTime);
+	    pszDepartureTime = NULL;
+	    pflFlightList = NULL;
+	    return;
+	} 
 
 	/* Do stuff */
-	iFlightAdded = AddFlight(pflFlightList, pszID, iDepartureTime, pszDestination);
-	if(iFlightAdded == OK){
+	iFlightAdded = AddFlight(pflFlightList, pszID, pszDepartureTime, pszDestination);
+	if(iFlightAdded == 0){
 	    printf("Flight added on id %s!\n\n", pszID);
 
 	} else printf("Could not add flight.\n\n");
@@ -162,8 +146,13 @@ void OptOne(void *vpflFlightList){
     /* Cleanup */
     free(pszID);
     free(pszDestination);
+    free(pszDepartureTime);
     pszID = NULL;
     pszDestination = NULL;
+    pszDepartureTime = NULL;
+
+    pflFlightList = NULL;
+    return;
 }
 
 /*
@@ -174,64 +163,102 @@ void OptTwo(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszFlightID = NULL, *pszPassengerName = NULL;
     int iSeatNumber = -1, iPassengerAge = -1;
-    
-    pszFlightID = (char *) malloc(MAX_INPUT);
-    pszPassengerName = (char *) malloc(MAX_INPUT);
+    int iInputValid = 0;
 
+    /* Print flight list */
+    printf("FLIGHTS\n\n");
+    if(PrintFlightListSimple(pflFlightList) == 1) return;
+
+    printf("\n%s\n\n", "________________________________________________________");
+
+    pszFlightID = (char *) malloc(MAX_INPUT);
     if(pszFlightID == NULL){
 	return;
     }
 
+    pszPassengerName = (char *) malloc(MAX_INPUT);
     if(pszPassengerName == NULL){
 	free(pszFlightID);
 	pszFlightID = NULL;
+	pszPassengerName = NULL;
+	pflFlightList = NULL;
 	return;
     }
 
-    /* Print flight list */
-    printf("Here are the current flights in the list\n");
-    PrintFlightListSimple(pflFlightList);
-    puts("\n\n");
-
     /* Ask for FLIGHT ID */
-    GetInput(1, (char *[]) {
-	"Enter a new flight ID. has to be exactly 4 characters",
-	}, (char *) "S", &pszFlightID
+    iInputValid = GetInput(1, (char *[]) {
+    "Enter registered FLIGHT ID (has to be exactly 4 characters):",
+    }, (char *) "S", pszFlightID
     );
+    if(iInputValid != 0){
+	free(pszPassengerName);
+	free(pszFlightID);
+	pszFlightID = NULL;
+	pszPassengerName = NULL;
+	pflFlightList = NULL;
+	return;
+    }
 
     /* Validates */
-    if(isValidFlightID(pszFlightID) == 0){
+    if(isValidFlightID(pflFlightList, pszFlightID) == 1){
+
 	/* Promts for input */
-	GetInput(1, (char *[]) {
-	    "Enter passenger name:",
-	}, (char *) "S", &pszPassengerName);
+	iInputValid = GetInput(1, (char *[]) {
+	    "Enter passenger NAME:",
+	}, (char *) "S", pszPassengerName);
+	if(iInputValid != 0){
+	    free(pszPassengerName);
+	    free(pszFlightID);
+	    pszFlightID = NULL;
+	    pszPassengerName = NULL;
+	    pflFlightList = NULL;
+	    return;
+	}
 
 	/* Checks if passenger already exists, if yes */
-	if(UniquePassengerExists(pflFlightList, pszPassengerName) != 0){
+	if(UniquePassengerExists(pflFlightList, pszPassengerName) == 0){
 	    /* Otherwise prompt for age and add them */
-	    printf("Seems this person is not in any other flights, so we need some more info.\n");
-	    GetInput(1, (char *[]) {
-		"Enter passenger age:"
+	    printf("\nSeems this person is not in any other flights, so we need some more info.\n\n");
+	    iInputValid = GetInput(1, (char *[]) {
+		"Enter the passengers AGE:"
 	    }, (char *) "I", &iPassengerAge);
+	    if(iInputValid != 0){
+		free(pszPassengerName);
+		free(pszFlightID);
+		pszFlightID = NULL;
+		pszPassengerName = NULL;
+		pflFlightList = NULL;
+		return;
+	    }
 
 	    /* Add the passenger if they dont exist */
 	    AddUniquePassenger(pflFlightList, pszPassengerName, iPassengerAge);
 	}
-    }
-  
-    /* Ask for seat number */
-    GetInput(1, (char *[]) {
-	"Assign a seat (0->64):",
-    }, (char *) "I", &iSeatNumber);
 
-    /* Add passenger to flight */
-    AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName);
+	/* Ask for seat number */
+	iInputValid = GetInput(1, (char *[]) {
+	    "Assign a seat (0 -> 64):",
+	}, (char *) "I", &iSeatNumber);
+	if(iInputValid != 0){
+	    free(pszPassengerName);
+	    free(pszFlightID);
+	    pszFlightID = NULL;
+	    pszPassengerName = NULL;
+	    pflFlightList = NULL;
+	    return;
+	}
+
+	/* Add passenger to flight */
+	AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName);
+    } else printf("Flight is not registered.\n");
 
     free(pszFlightID);
     free(pszPassengerName);
-    pflFlightList = NULL;
     pszFlightID = NULL;
     pszPassengerName = NULL;
+
+    pflFlightList = NULL;
+    return;
 }
 
 /*
@@ -241,14 +268,19 @@ void OptTwo(void *vpflFlightList){
 void OptThree(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     int iFlightNumber = -1;
+    int iInputValid;
 
     printf("Here are the current flights in the list\n");
     PrintFlightListSimple(pflFlightList);
     puts("\n");
 
-    GetInput(1, (char *[]) {
+    iInputValid = GetInput(1, (char *[]) {
         "Enter Flight NUMBER:"
     }, (char *) "I", &iFlightNumber);
+    if(iInputValid != 0){
+	printf("Invalid input\n");
+	return;
+    }
 
     PrintFlight(pflFlightList, iFlightNumber);
 
@@ -262,6 +294,7 @@ void OptFour(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
 
     int iFlights;
+    int iInputValid;
     char *pszDestination = NULL;
 
     pszDestination = (char *) malloc(MAX_INPUT);
@@ -270,9 +303,16 @@ void OptFour(void *vpflFlightList){
 	return;
     }
 
-    GetInput(1, (char*[]) {
+    iInputValid = GetInput(1, (char*[]) {
 	"Enter Destination:"
-    }, (char *) "S", &pszDestination);
+    }, (char *) "S", pszDestination);
+    if(iInputValid != 0){
+	printf("Invalid input\n");
+	free(pszDestination);
+	pszDestination = NULL;
+	pflFlightList = NULL;
+	return;
+    }
 
     iFlights = PrintFlightsByDestination(pflFlightList, pszDestination);
     if(iFlights > 0){
@@ -283,6 +323,7 @@ void OptFour(void *vpflFlightList){
 
     free(pszDestination);
     pszDestination = NULL;
+    pflFlightList = NULL;
 }
 
 /*
@@ -292,6 +333,7 @@ void OptFive(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszFlightID = NULL;
     int iFlightDeleted;
+    int iInputValid = 0;
 
     pszFlightID = (char *) malloc(MAX_INPUT);
     if(pszFlightID == NULL){
@@ -303,18 +345,21 @@ void OptFive(void *vpflFlightList){
     PrintFlightListSimple(pflFlightList);
     puts("\n");
 
-    GetInput(1, (char *[]) {
+    iInputValid = GetInput(1, (char *[]) {
 	"\nEnter flight ID to delete:"
-	}, (char *) "S", &pszFlightID
-    );
+	}, (char *) "S", pszFlightID);
+    if(iInputValid != 0){
+	printf("Invalid input\n");
+	pflFlightList = NULL;
+	return;
+    }
 
     /* Validates */
-    if(isValidFlightID(pszFlightID) == 0){
+    if(isValidFlightID(pflFlightList, pszFlightID) == 1){
 	/* If that is validated, ask for remaining data */
-	bdebug("Deleting Flight ID: %s\n", pszFlightID);
 	iFlightDeleted = RemoveFlight(pflFlightList, pszFlightID);
 	if(iFlightDeleted == 0){
-	    printf("Flight with id %s was deleted!\n\n", pszFlightID);
+	    printf("Flight %s was deleted!\n\n", pszFlightID);
 	} else {
 	    printf("Flight could not be deleted.\n\n");
 	}
@@ -322,6 +367,8 @@ void OptFive(void *vpflFlightList){
 
     free(pszFlightID);
     pszFlightID = NULL;
+    pflFlightList = NULL;
+
 }
 
 /*
@@ -333,6 +380,7 @@ void OptSix(void *vpflFlightList){
     char *pszFlightID = NULL, *pszName = NULL;
     int iNewSeat = -1;
     int iChangedSeat;
+    int iInputValid = 0;
 
     pszFlightID = (char *) malloc(MAX_INPUT);
     if(pszFlightID == NULL){
@@ -341,20 +389,26 @@ void OptSix(void *vpflFlightList){
     }
 
     printf("Here are the current flights in the list\n");
-    PrintFlightListSimple(pflFlightList);
+    PrintFlightList(pflFlightList);
     puts("\n");
 
     /* Get flight id first */
-    GetInput(1, (char *[]) {
-	"\nEnter flight ID to delete:"
-	}, (char *) "S", &pszFlightID
-    );
+    iInputValid = GetInput(1, (char *[]) {
+	"\nEnter Flight ID:"
+	}, (char *) "S", pszFlightID);
+    if(iInputValid != 0){
+	printf("Invalid input\n");
+	free(pszFlightID);
+	pszFlightID = NULL;
+	pflFlightList = NULL;
+	return;
+    }
 
     /* Validates */
-    if(isValidFlightID(pszFlightID) == 0){
+    if(isValidFlightID(pflFlightList, pszFlightID) == 1){
 
 	/* Show the list of passengers for reference */
-	if(PassengerListIsEmpty(pflFlightList, pszFlightID)){
+	if(PassengerListIsEmpty(pflFlightList, pszFlightID) != 0){
 	    printf("Could not continue with action.\n");
 	} else {
 	    /* Take more input */
@@ -368,10 +422,18 @@ void OptSix(void *vpflFlightList){
 		return;
 	    }
 
-	    GetInput(2, (char*[]) {
+	    iInputValid = GetInput(2, (char*[]) {
 		"Enter passenger name:",
-		"Enter NEW seat number (0->64):"
-	    }, (char *) "SI", &pszName, &iNewSeat);
+	    }, (char *) "SI", pszName, &iNewSeat);
+	    if(iInputValid != 0){
+		printf("Invalid input\n");
+		free(pszName);
+		pszName = NULL;
+		free(pszFlightID);
+		pszFlightID = NULL;
+		pflFlightList = NULL;
+		return;
+	    }
 
 	    iChangedSeat = ChangePassengerSeat(pflFlightList, pszFlightID, pszName, iNewSeat);
 	    if(iChangedSeat == 0){
@@ -382,11 +444,11 @@ void OptSix(void *vpflFlightList){
 	}
     }
 
-
     free(pszFlightID);
     free(pszName);
     pszFlightID = NULL;
     pszName = NULL;
+    pflFlightList = NULL;
 }
 
 /*
@@ -395,6 +457,7 @@ void OptSix(void *vpflFlightList){
 void OptSeven(void *vpflFlightList){
     FLIGHT_LIST *pflFlightList = (FLIGHT_LIST *) vpflFlightList;
     char *pszName = NULL;
+    int iInputValid;
 
     pszName = (char *) malloc(MAX_INPUT);
     if(pszName == NULL){
@@ -402,9 +465,16 @@ void OptSeven(void *vpflFlightList){
 	return;
     }
 
-    GetInput(1, (char*[]) {
+    iInputValid = GetInput(1, (char*[]) {
 	"Enter Passenger Name:"
-    }, (char *){"S"}, &pszName);
+    }, (char *){"S"}, pszName);
+    if(iInputValid != 0){
+	printf("Invalid input\n");
+	free(pszName);
+	pflFlightList = NULL;
+	pszName = NULL;
+	return;
+    }
 
     printf("Displaying flights booked by %s \n", pszName);
     if(GetPassengersFlights(pflFlightList, pszName) == 0){
@@ -414,6 +484,7 @@ void OptSeven(void *vpflFlightList){
     free(pszName);
     pflFlightList = NULL;
     pszName = NULL;
+    return;
 }
 
 /*
@@ -427,4 +498,5 @@ void OptEight(void *vpflFlightList){
     iPassengers = PrintPassengersWithMultipleFlights((FLIGHT_LIST *) vpflFlightList);
     if(iPassengers == 1)
 	printf("No valid passengers were found.\n");
+    return;
 }
