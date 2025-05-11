@@ -326,12 +326,17 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 
 				/* NOTE: Supposed to restrict from using any characters but regular letters and number.
 				 * However this is buggy and inconsistent. Not entirely sure why. */
-				if(!((58 > c && c > 47) ||
+				if(((58 > c && c > 47) ||
 					(91 > c && c > 64) ||
 					(123 > c && c > 96))){
+				} else {
 
+					va_end(vaPointers);		
+					free(pszBuffer);
+					pszBuffer = NULL;
 					
 					return 1;
+
 				} 
 			}
 
@@ -339,6 +344,7 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 			pszBuffer[strcspn(pszBuffer, "\r\n")] = 0;
 
 			*pszArg = pszBuffer;
+			iStatus = 0;
 
 			/* If type is int */
 		} else if(szTypeFlags[i] == 'I'){
@@ -382,7 +388,6 @@ int GetInput(int iArgC, char *szArgMessages[], char szTypeFlags[], ...){
 	free(pszBuffer);
 	pszBuffer = NULL;
 	piArg = NULL;
-
 	return iStatus;
 } 
 

@@ -255,7 +255,6 @@ void OptTwo(void *vpflFlightList){
 	/* Add passenger to flight */
 	AddPassengerToFlight(pflFlightList, pszFlightID, iSeatNumber, pszPassengerName);
     }
-  
 
     free(pszFlightID);
     free(pszPassengerName);
