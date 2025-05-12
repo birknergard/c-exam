@@ -8,15 +8,28 @@
 #include "solution.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <netinet/in.h> /*  */
+#include <arpa/inet.h> /*  */
 
 #include <byteswap.h> /* Big to little endian conversion */
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+uint64_t ntohll(uint64_t value) {
+   return ((uint64_t)ntohl(value & 0xFFFFFFFF) << 32) | ntohl(value >> 32);
+}
+
+uint64_t htonll(uint64_t value) {
+   return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32) | htonl(value >> 32);
+}
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
 
 int main(int iArgC, char **arrpszArgV){
 
@@ -182,7 +195,7 @@ int main(int iArgC, char **arrpszArgV){
       reRequest.szHeader = NULL;
       reRequest.arrby8Encrypted = NULL;
 
-      reRequest.szHeader = (unsigned char *) malloc(iHeaderLength + 1);
+      reRequest.szHeader = (unsigned char *) malloc(iHeaderLength);
       if(reRequest.szHeader == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
@@ -222,9 +235,14 @@ int main(int iArgC, char **arrpszArgV){
 
       printf("\nENC AS HEX=\n");
       for(i = 0; i < iContentLength / 8; i++){
+         /* Bytes are received in BIG ENDIAN */
          /* Ensure host byte order ? source: htons(3) man page */
-         /* reRequest.arrby8Encrypted[i] = reRequest.arrby8Encrypted[i];*/
-         printf("%016llX ", reRequest.arrby8Encrypted[i]);
+         printf("IN %016llX ", reRequest.arrby8Encrypted[i].by8Base);
+         //reRequest.arrby8Encrypted[i].by8Base = ntohll(reRequest.arrby8Encrypted[i].by8Base);
+         //reRequest.arrby8Encrypted[i].by4[0] = ntohl(reRequest.arrby8Encrypted[i].by4[0]);
+         //reRequest.arrby8Encrypted[i].by4[1] = ntohl(reRequest.arrby8Encrypted[i].by4[1]);
+         /* Bytes are converted to LITTLE ENDIAN */
+         printf("OUT %016llX \n", reRequest.arrby8Encrypted[i].by8Base);
       }
       printf("\nENC END=\n");
 
@@ -260,22 +278,27 @@ int main(int iArgC, char **arrpszArgV){
 
    /*-------------PART 2: DECRYPTING THE FILE---------------------*/
 
-   /* For testing. when i merge the files togheter */
    
-   int iFileContent = 648;
-   int iSize = iFileContent / 8; /* Original file was encrypted with 64 bit padding, meaning the file is actually 648 / 8 = 81 */
-
    /* Preparing pointers */
    FILE *fpEncrypted = NULL;
-   char szDeciphered[82] = {0};
 
    /* Opening file */
-   fpEncrypted = fopen("encrypted.bin", "rb");
+   //fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
+   fpEncrypted = fopen("./encrypted.bin", "rb");
    if(fpEncrypted == NULL){
       printf("Failed to open file.\n");
       return 1;
    }
 
+   /* Getting file size */
+   int iFileContent;
+   if(fseek(fpEncrypted, 0, SEEK_END) == 0){
+      iFileContent = ftell(fpEncrypted);
+      rewind(fpEncrypted);
+   }
+
+   int iSize = iFileContent / 8; /* Original file was encrypted with 64 bit padding, meaning the file is actually 648 / 8 = 81 */
+   char *szDeciphered = NULL;
 
    /* For more flexibility */
    union UN_BY8 aun_by8Encrypted[81] = {0};
@@ -296,10 +319,8 @@ int main(int iArgC, char **arrpszArgV){
    fclose(fpEncrypted);
    fpEncrypted = NULL;
 
-   printf("\nENC AS HEX, AFTER WRITE=\n");
+   printf("\nENC (%d bytes) AS HEX, AFTER WRITE=\n", iFileContent);
    for(i = 0; i < iSize; i++){
-      /* Ensure host byte order ? source: htons(3) man page */
-      /*reRequest.arrby8Encrypted[i] = reRequest.arrby8Encrypted[i];*/
       printf("%016llX ", aun_by8Encrypted[i].by8Base);
    }
    printf("\nENC AFTER WRITE END=\n");
@@ -314,18 +335,19 @@ int main(int iArgC, char **arrpszArgV){
          if(y >= 3) iIterations += iIterations; 
       }
 
-      printf("\n---RUNNING DECRYPT -> %d TEA ITERATIONS, %d ENDIAN, PREV KEY=[", iIterations, iEndian);
-      int a;
-      for(a = 0; a < 16; a++){
-         printf("%02X", by4Key[1]); 
-      }
-      puts("]");
+      int i;
+      for(i = 0; i <= 255; i++){
 
-      int iCheckedCharKey;
-      for(iCheckedCharKey = 0; iCheckedCharKey <= 255; iCheckedCharKey++){
+         /* Allocating for decipher container */
+         char *szDeciphered = (char *) malloc(iSize + 1);
+         if(szDeciphered == NULL){
+            return -1;
+         }
+         memset(szDeciphered, 0, iSize);
 
-         cKeyChar = (unsigned char) iCheckedCharKey;
-         memset(by4Key, cKeyChar, 4);
+         char cCheckedCharKey = (char) i;
+         memset(by4Key, cCheckedCharKey, sizeof(unsigned char) * 4);
+
          /*
          for(a = 0; a < 16; a++){
             printf("%02X", by4Key[0]); 
@@ -340,15 +362,14 @@ int main(int iArgC, char **arrpszArgV){
             union UN_BY8 un_by8Encrypted;
             un_by8Encrypted.by8Base = aun_by8Encrypted[l].by8Base;
 
+            un_by8Encrypted.by8Base = ntohll(un_by8Encrypted.by8Base);
             /* Checks between little endian (host order) and big endian (network order) */
             if(y % 2 == 0){
                iEndian = 1;
+               //un_by8Encrypted.by4[0] = htonl(un_by8Encrypted.by4[0]); 
             } else{
                /* Converts the padded byte to little endian */
-               /* printf("%016llX -- ", un_by8Encrypted.by8Base);
-               un_by8Encrypted.by4[0] = ntohl(un_by8Encrypted.by4[0]);
-               un_by8Encrypted.by4[1] = ntohl(un_by8Encrypted.by4[1]);
-               /* printf("%016llX\n", un_by8Encrypted.by8Base); */
+               //printf("%016llX -- ", un_by8Encrypted.by8Base);
                iEndian = -1;
             } 
 
@@ -378,15 +399,15 @@ int main(int iArgC, char **arrpszArgV){
             for(n = 0; n < iIterations; n++){
                /* Subtracting the amount of characters that was originally added "added".*/
                un_by8Encrypted.by4[1] -= (
-                  (un_by8Encrypted.by4[0] << 4) + by4Key[0]) ^ 
+                  (un_by8Encrypted.by4[0] << 4) + by4Key[2]) ^ 
                   (un_by8Encrypted.by4[0] + uiSum) ^ 
-                  ((un_by8Encrypted.by4[0] >> 5) + by4Key[0]
+                  ((un_by8Encrypted.by4[0] >> 5) + by4Key[3]
                );
 
                un_by8Encrypted.by4[0] -= (
                   (un_by8Encrypted.by4[1] << 4) + by4Key[0]) ^ 
                   (un_by8Encrypted.by4[1] + uiSum) ^ 
-                  ((un_by8Encrypted.by4[1] >> 5) + by4Key[0]
+                  ((un_by8Encrypted.by4[1] >> 5) + by4Key[1]
                );
                /* Since we  increased to sum to add to the encrypted character sum in the last algorithm,
                 * we subtract it here */
@@ -398,32 +419,40 @@ int main(int iArgC, char **arrpszArgV){
             }
 
             /* Converts the long (int, int) into a single char. When converting to char, C only keeps the first byte.
-             * Since PKCS5 padding pads rightwards we know this is the intenden char. */
+             * Since PKCS5 padding pads rightwards we know this is the intended char. */
 
             /* If every byte after the first == 0x07 the char is almost certainly decrypted*/
-            int pad;
-            for(pad = 1; pad < 8; pad++){
-               if(un_by8Encrypted.schar[pad] != 0x07 ) {
-                  iDeciphered = 0;
-                  break;
-               } 
+
+            /* Since the algorithm encrypts 32 bits of each paddes byte at the same time,
+             * with the same encryption key, the two halves lowest or highest byte position according
+             * to endianness will remain. Since the byte is padded with PKCS5 we know that one of the bytes is 
+             * 0x07, and the other byte is the decrypted initial byte. Every other byte will have been scrambled
+             * due to the algoritm ? */
+
+            /* I figured this out by creating my own encrypted test with my solution from task 4. */
+            if(iEndian == 1){
+               if(un_by8Encrypted.schar[3] == 0x07){
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[7];
+                  iDeciphered = 1;
+               } else {
+                  iDeciphered = -1; 
+               }
+
+            } else {
+               if(un_by8Encrypted.schar[4] == 0x07){
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[0];
+                  iDeciphered = 1;
+               } else {
+                  iDeciphered = -1; 
+               }
             }
 
-            if(iDeciphered == 0) break;
-
-            byDeciphered = un_by8Encrypted.schar[0];
             l++;
-            szDeciphered[l] = byDeciphered;
-
-            /* Check if the character is readable ascii. If not then we skip this key */
-            /* If the inverse condition happens, we restart */
-            /*
-            if((126 >= byDeciphered && byDeciphered >= 32) || byDeciphered == '\r' || byDeciphered == '\n'){
-               /* If it is readable ascii, we add it to the text string */
 
          }
+
          if(iDeciphered == 1){
-            printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, cKeyChar);
+            printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02X\n", iIterations, iEndian, by4Key[0]);
             szDeciphered[iSize] = '\0';
             printf("Solution? %s\n", szDeciphered);
          }

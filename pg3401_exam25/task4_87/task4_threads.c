@@ -13,11 +13,6 @@
  *
  * I also was not sure whether we were supposed to transform the decryption code in any way. I attempted to do
  * so and tested the result but I would love to know in the feedback.
- *
- * */
-
-/* Part 1 Output
- *
  * */
 
 #include <pthread.h>
@@ -27,13 +22,40 @@
 #include <unistd.h>
 #include <semaphore.h> /* Semaphores are not in pthread.h so we add it here */
 
+#include <arpa/inet.h>
+
 #define BUFFER_SIZE 4096
 #define NUM_THREADS 2
 #define BYTE_RANGE 256
 #define MAX_FILENAME 1028
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+uint64_t ntohll(uint64_t value) {
+   return ((uint64_t)ntohl(value & 0xFFFFFFFF) << 32) | ntohl(value >> 32);
+}
+
+uint64_t htonll(uint64_t value) {
+   return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32) | htonl(value >> 32);
+}
+#else
+#define htonll(x) (x)
+#define ntohll(x) (x)
+#endif
+
 /* Defining BYTE types for clarity */
 #define BYTE unsigned char
+
+union _KEY {
+   long split[2];
+   BYTE bytes[16];
+} KEY;
+
+union ENCBYTE{
+   BYTE by[8];
+   unsigned int by4[2];
+   long by8;
+}; 
+
 
 typedef struct _THREAD_ARGS {
    /* Synchronization controllers */
@@ -53,13 +75,6 @@ typedef struct _THREAD_ARGS {
    char *szFileName;
 
 } THREAD_ARGS;
-
-/*
- * Encrypts a given byte. Requires an empty *BYTE[8], and a string key 
- * Returns 1 if it fails, 0 if not. 
- * */
-int TeaEncrypt(BYTE byteToEncrypt, BYTE *pby8Encrypted, char szKey[]);
-
 
 /*
  * Checks a string if it has the .txt file suffix 
@@ -182,7 +197,7 @@ void* CounterThread(void* vpArgs) {
    int iReaderComplete = 0;
    int iarrByteCount[BYTE_RANGE];
    int iDJB2Hash; 
-   BYTE by,  byEncrypted[8];
+   BYTE by, byKey[16];
 
    /* Casting void * to argument struct * */
    THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
@@ -210,7 +225,7 @@ void* CounterThread(void* vpArgs) {
          tData->iCounterSetupFailed = 1;
       }
       
-      fpEncrypted = fopen("./task4_pg2265.enc", "wb");
+      fpEncrypted = fopen("./task4_pg2265.bin", "wb");
       if(fpEncrypted == NULL){
          perror("Failed to open .enc file.");
 
@@ -255,25 +270,43 @@ void* CounterThread(void* vpArgs) {
                by = ((iDJB2Hash << 5) + iDJB2Hash) + by;
 
                /* Write hashed byte value to file */
-               fwrite(&by, sizeof(BYTE), 1, fpHashed);
+               fwrite(&by, 1, 1, fpHashed);
             }
 
             /* TEA ENCRYPT */
             for(i = 0; i < tData->iBytesInBuffer; i++){
                by = tData->byarrBuffer[i];
 
-               /* Pad and encrypt byte (see implementation for details) */
-               TeaEncrypt(by, byEncrypted, "HelloWorldMyLove");
+               /* Create key and padded byte */
+               memset(byKey, '1', 16);
 
+               /* Pad byte with union */
+               union ENCBYTE byEncrypted;
+               memset(&byEncrypted.by, 0x07, 8);
+               byEncrypted.by[0] = by;
+
+               /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) 
+                * I wasn't sure if I should include register keyword on the variable declarations, since
+                * we havent learned it during the course. */
+
+               unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
+               unsigned int uiKeyOne = byKey[3], uiKeyTwo = byKey[7], uiKeyThree = byKey[11], uiKeyFour = byKey[15];
+               int n;
+
+               /* Encrypts padded byte */
+               for(n = 0; n < 32; n++){
+                  uiSum += uiDelta;
+                  byEncrypted.by4[0] += ((byEncrypted.by4[1] << 4) + uiKeyOne) ^ (byEncrypted.by4[1] + uiSum) ^ (( byEncrypted.by4[1] >> 5) + uiKeyTwo);
+                  byEncrypted.by4[1] += ((byEncrypted.by4[0] << 4) + uiKeyThree) ^ (byEncrypted.by4[0] + uiSum) ^ (( byEncrypted.by4[0] >> 5) + uiKeyFour);
+               }
+
+               byEncrypted.by8 = htonll(byEncrypted.by8);
                /* Write encrypted byte to file */
-               fwrite(&byEncrypted, sizeof(BYTE) * 8, 1, fpEncrypted);
+               fwrite(&byEncrypted.by8, sizeof(BYTE) * 8, 1, fpEncrypted);
             }
-
 
             /* Resets the number of bytes in buffer */
             tData->iBytesInBuffer = 0;
-
-
 
             /* If bytes were less than max when signal was received, we exit the program here. */
             pthread_mutex_unlock(&tData->muLock);
@@ -419,50 +452,5 @@ int isTxtFile(char *szFileName){
    if(strncmp(szSubstring, ".txt", 4) == 0){
       return 1;
    } else return 0;
-}
-
-int TeaEncrypt(BYTE byToEncrypt, BYTE *pby8Encrypted, char *szKey){
-   /* 64 bits */
-   BYTE byarrPadded[8];
-   BYTE byarr16Key[16];
-
-   /* Check that key string is 16 characters exactly */
-   if(strlen(szKey) != 16){
-      perror("Key needs to be exactly 16 characters");
-      return 1;
-   }
-
-   /* To avoid null terminator, copy over everything but the key into the byte arrayay */
-   memset(byarr16Key, 0, 16);
-   memcpy(byarr16Key, szKey, 16);
-
-   /* Create padded byte. Is always 0x07 since always just need to pad one byte */
-   memset(byarrPadded, 0x07, sizeof(BYTE) * 8);
-   byarrPadded[0] = byToEncrypt;
-
-   /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) 
-    * I wasn't sure if I should include register keyword on the variable declarations, since
-    * we havent learned it during the course. I figure since the provided script does so
-    * I shall do it as well. */
-   register unsigned int uiY = byarrPadded[0]; 
-   register unsigned int uiZ = byarrPadded[3];
-
-   register unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
-   register unsigned int uiKeyOne = byarr16Key[3], uiKeyTwo = byarr16Key[7], uiKeyThree = byarr16Key[11], uiKeyFour = byarr16Key[15];
-   int n;
-
-   /* Encrypts padded byte */
-   for(n = 0; n < 32; n++){
-      uiSum += uiDelta;
-      uiY += (uiZ << 4) + uiKeyOne ^ uiZ + uiSum ^ ( uiZ >> 5) + uiKeyTwo;
-      uiZ += (uiY << 4) + uiKeyThree ^ uiY + uiSum ^ ( uiY >> 5) + uiKeyFour;
-   }
-
-   /* Defines the encrypted bytes, split by each 4 bytes in the padded byte */
-   *pby8Encrypted = uiY;
-   pby8Encrypted += 4 /* Incrementing pointer by 4 bytes (moving pointer to other half) */;
-   *pby8Encrypted = uiZ; 
-
-   return 0;
 }
 
