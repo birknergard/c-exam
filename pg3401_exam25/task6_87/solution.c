@@ -23,9 +23,10 @@ int isReadableAscii(char c){
 
 /* NOTE: As i probably mentioned in that source file, the code was essentially entirely based on
 the supplied tea.c file and its documentation. */
-void decipher(unsigned int *const v, unsigned int *const w, unsigned int *k, unsigned int n){
-   register unsigned int y=v[0], z=v[1], delta=0x9E3779B9, sum=delta * n;
+void decipher(unsigned int *const v, unsigned int *const w, unsigned int *k){
+   register unsigned int y=v[0], z=v[1], delta=0x9E3779B9, sum=0xC6EF3720;
    register unsigned int a=k[0], b=k[1], c=k[2], d=k[3];
+   unsigned int n = 32;
 
    int i; 
    for(i = 0; i < n; i++){
@@ -250,7 +251,7 @@ int main(int iArgC, char **arrpszArgV){
 
       /* Opening / creating file handle */
       FILE *fpEncryptedFile = NULL;
-      fpEncryptedFile = fopen("./encrypted.bin", "wb");
+      fpEncryptedFile = fopen("./encrypted.txt", "wb");
       if(fpEncryptedFile == NULL){
          free(reRequest.szHeader);
          reRequest.szHeader = NULL;
@@ -291,7 +292,7 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Opening file */
    //fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
-   fpEncrypted = fopen("encrypted.bin", "rb");
+   fpEncrypted = fopen("encrypted.txt", "rb");
    if(fpEncrypted == NULL){
       printf("Failed to open file.\n");
       return 1;
@@ -304,8 +305,9 @@ int main(int iArgC, char **arrpszArgV){
       rewind(fpEncrypted);
    }
 
-   int iSize = iFileContent / 8; /* Original file was encrypted with 64 bit padding, meaning the file is actually 648 / 8 = 81 */
-   char *szDeciphered = NULL;
+   /* Original file was encrypted with 64 bit padding, meaning the file is actually 648 / 8 = 81 */
+   int iSize = iFileContent / 8; 
+
 
    /* For more flexibility */
    union UN_BY8 aun_by8Encrypted[81] = {0};
@@ -339,72 +341,118 @@ int main(int iArgC, char **arrpszArgV){
    }
    */
 
-   for(i = 0; i <= 255; i++){
+   char *szDeciphered = NULL;
 
-      /* Allocating for decipher container */
-      char *szDeciphered = (char *) malloc(iSize + 1);
-      if(szDeciphered == NULL){
-         return -1;
-      }
-      memset(szDeciphered, 0, iSize);
+   /* Runs the decryption for four extra iterations.
+    * 0. No endian conversion
+    * 1. ntohl pre decipher
+    * 2. ntohl post decipher
+    * 3. htonl pre decipher
+    * 4. htonl post decipher
+    * */
+   int t;
+   for(t = 0; t <= 4; t++){
+      for(i = 0; i <= 255; i++){
 
-      char cCheckedCharKey = (unsigned char) i;
-
-      /* since every byte is the same, this is fine just for padding for one key modifier later */
-      union UN_BY16 by16Key; 
-      memset(by16Key.by, (BYTE) cCheckedCharKey, 16);
-      
-      union UN_BY8 un_by8Buffer[81];
-
-      int l = 0;
-      /* Checks both in little and big endian */
-      while(l < iSize){
-
-         union UN_BY8 un_by8Deciphered;
-         un_by8Deciphered.by8Base = 0;
-
-         //printf("BEFORE %08lx == %08lx\n", aun_by8Encrypted[l].by8Base, un_by8Deciphered.by8Base);
-         decipher(aun_by8Encrypted[l].by4, un_by8Deciphered.by4, by16Key.by4, iIterations);
-
-         /* DEBUG: Making sure the decipher actually change the value */
-         //printf("AFTER %08lx == %08lx\n", aun_by8Encrypted[l].by8Base, un_by8Deciphered.by8Base);
-
-         un_by8Buffer[l].by8Base = un_by8Deciphered.by8Base;
-         szDeciphered[l] = (char) un_by8Deciphered.by[0];
-         l++;
-
-      }
-
-      /*
-      if(cCheckedCharKey == 12){
-         int k;
-         printf("Partially decrypted ->\n");
-         for(k = 0; k < iSize; k++){
-            printf("0x%02X ", un_by8Buffer[k].by);
+         /* Allocating for decipher container */
+         char *szDeciphered = (char *) malloc(iSize + 1);
+         if(szDeciphered == NULL){
+            return -1;
          }
-      }
-      */
+         memset(szDeciphered, 0, iSize);
+
+         char cCheckedCharKey = (unsigned char) i;
+
+         /* since every byte is the same, this is fine just for padding for one key modifier later */
+         union UN_BY16 by16Key; 
+         memset(by16Key.by, (BYTE) cCheckedCharKey, 16);
+         
+         union UN_BY8 aun_by8Buffer[81];
+
+         int l = 0;
+         /* Checks both in little and big endian */
+         while(l < iSize){
+            //printf("%d-\n", l);
+
+            union UN_BY8 un_by8Deciphered;
+            un_by8Deciphered.by8Base = 0;
+
+            /* Attempted to convert to NBO (big endian, network byte order).
+             * result was scrambled but also valid text format. Converting before decryption led to no
+             * valid results at all. */
+            if(t == 1){
+               aun_by8Encrypted[l].by4[0] = htonl(aun_by8Encrypted[l].by4[0]);
+               aun_by8Encrypted[l].by4[1] = htonl(aun_by8Encrypted[l].by4[1]);
+            }
+
+            /* Also attemted to convert to little endian, but result scrambled identically.
+             * Converting before decryption also led to no valid results. */
+            if(t == 3){
+               aun_by8Encrypted[l].by4[0] = ntohl(aun_by8Encrypted[l].by4[0]);
+               aun_by8Encrypted[l].by4[1] = ntohl(aun_by8Encrypted[l].by4[1]);
+            }
 
 
+            //printf("BEFORE %08lx == %08lx\n", aun_by8Encrypted[l].by8Base, un_by8Deciphered.by8Base);
+            decipher(aun_by8Encrypted[l].by4, un_by8Deciphered.by4, by16Key.by4);
 
-      int iChars, iFailed;
-      for(iChars = 0; iChars < iSize; iChars++){
-         iFailed = isReadableAscii(szDeciphered[iChars]);
-         if(iFailed == 1){
-            break;
+            /* DEBUG: Making sure the decipher actually change the value */
+            //printf("AFTER %08lx == %08lx\n", aun_by8Encrypted[l].by8Base, un_by8Deciphered.by8Base);
+
+            /* Attempted to convert to NBO (big endian, network byte order).
+             * result was scrambled but also valid text format. Converting before decryption led to no
+             * valid results at all. */
+            if(t == 4){
+               aun_by8Buffer[l].by4[0] = htonl(un_by8Deciphered.by4[0]);
+               aun_by8Buffer[l].by4[1] = htonl(un_by8Deciphered.by4[1]);
+            }
+
+            /* Also attemted to convert to little endian, but result scrambled identically.
+             * Converting before decryption also led to no valid results. */
+            if(t == 2){
+               aun_by8Buffer[l].by4[0] = ntohl(un_by8Deciphered.by4[0]);
+               aun_by8Buffer[l].by4[1] = ntohl(un_by8Deciphered.by4[1]);
+            }
+
+            szDeciphered[l] = (char) aun_by8Buffer[l].by[3];
+            l++;
+
          }
-      }
 
-      if(iFailed != 1){
-         printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02x\n", iIterations, iEndian, cCheckedCharKey);
          szDeciphered[iSize] = '\0';
-         printf("\nSolution? %s\n\n", szDeciphered);
-         int k;
-         for(k = 0; k < iSize; k++){
-            printf("%c", (char) szDeciphered[k]);
+
+         int iChars, iFailed = 0;
+
+         if(strlen(szDeciphered) != 81) iFailed = 1; 
+
+         for(iChars = 0; iChars < iSize; iChars++){
+            iFailed = isReadableAscii(szDeciphered[iChars]);
+            if(iFailed == 1){
+               break;
+            }
          }
+
+         if(iFailed != 1){
+            printf("---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02x\n", iIterations, t, cCheckedCharKey);
+            printf("\nSolution? %s\n\n", szDeciphered);
+            int k;
+            for(k = 0; k < iSize; k++){
+               printf("%c", (char) szDeciphered[k]);
+            }
+         }
+
+         /*
+         if(cCheckedCharKey == 12){
+            int k;
+            printf("Partially decrypted ->\n");
+            for(k = 0; k < iSize; k++){
+               printf("0x%02X ", aun_by8Buffer[k].by);
+            }
+         }
+         */
       }
    }
+
 
    return 0;
 }
