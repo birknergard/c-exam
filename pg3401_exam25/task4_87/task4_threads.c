@@ -29,19 +29,6 @@
 #define BYTE_RANGE 256
 #define MAX_FILENAME 1028
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-uint64_t ntohll(uint64_t value) {
-   return ((uint64_t)ntohl(value & 0xFFFFFFFF) << 32) | ntohl(value >> 32);
-}
-
-uint64_t htonll(uint64_t value) {
-   return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32) | htonl(value >> 32);
-}
-#else
-#define htonll(x) (x)
-#define ntohll(x) (x)
-#endif
-
 /* Defining BYTE types for clarity */
 #define BYTE unsigned char
 
@@ -277,30 +264,33 @@ void* CounterThread(void* vpArgs) {
             for(i = 0; i < tData->iBytesInBuffer; i++){
                by = tData->byarrBuffer[i];
 
-               /* Create key and padded byte */
-               memset(byKey, '1', 16);
+               /* Create key */
+               memset(byKey, 'f', 16);
 
-               /* Pad byte with union */
+               /* Pad byte with union and 0x07 (PKCS5 padding) */
                union ENCBYTE byEncrypted;
                memset(&byEncrypted.by, 0x07, 8);
-               byEncrypted.by[0] = by;
+               byEncrypted.by[7] = by;
 
-               /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) 
-                * I wasn't sure if I should include register keyword on the variable declarations, since
-                * we havent learned it during the course. */
+               /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
 
                unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
-               unsigned int uiKeyOne = byKey[3], uiKeyTwo = byKey[7], uiKeyThree = byKey[11], uiKeyFour = byKey[15];
+               unsigned int uiKeyOne = byKey[0], uiKeyTwo = byKey[3], uiKeyThree = byKey[7], uiKeyFour = byKey[11];
                int n;
+
+               unsigned int byY = byEncrypted.by4[0];
+               unsigned int byZ = byEncrypted.by4[1];
 
                /* Encrypts padded byte */
                for(n = 0; n < 32; n++){
                   uiSum += uiDelta;
-                  byEncrypted.by4[0] += ((byEncrypted.by4[1] << 4) + uiKeyOne) ^ (byEncrypted.by4[1] + uiSum) ^ (( byEncrypted.by4[1] >> 5) + uiKeyTwo);
-                  byEncrypted.by4[1] += ((byEncrypted.by4[0] << 4) + uiKeyThree) ^ (byEncrypted.by4[0] + uiSum) ^ (( byEncrypted.by4[0] >> 5) + uiKeyFour);
+                  byY += ((byZ << 4) + uiKeyOne) ^ (byZ + uiSum) ^ (( byZ >> 5) + uiKeyTwo);
+                  byZ += ((byY << 4) + uiKeyThree) ^ (byY + uiSum) ^ (( byY >> 5) + uiKeyFour);
                }
 
-               byEncrypted.by8 = htonll(byEncrypted.by8);
+               byEncrypted.by4[0] = byY;
+               byEncrypted.by4[1] = byZ;
+
                /* Write encrypted byte to file */
                fwrite(&byEncrypted.by8, sizeof(BYTE) * 8, 1, fpEncrypted);
             }

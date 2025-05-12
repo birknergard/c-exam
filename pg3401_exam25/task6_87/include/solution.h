@@ -8,6 +8,12 @@
 #define BY4 unsigned int
 #define BY8 unsigned long
 
+union UN_BY16{
+   BYTE by[16];
+   BY4 by4[4];
+   BY8 by8[2];
+};
+
 union UN_BY8 {
    char schar[8];
    BYTE by[8];
