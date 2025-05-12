@@ -328,14 +328,12 @@ int main(int iArgC, char **arrpszArgV){
    BYTE by4Key[4]; /* since every byte is the same, this is fine just for padding for one key modifier later */
    memset(by4Key, 0, 4);
 
-   for(y = 1; y <= 32; y++){
+   for(y = 1; y <= 8; y++){
 
       /* Doubles the iterations every other loop (MAX 64) */
-      /*
       if(y % 2 != 0 ){
          if(y >= 3) iIterations += iIterations; 
       }
-      */
 
       int i;
       for(i = 0; i <= 255; i++){
@@ -393,7 +391,6 @@ int main(int iArgC, char **arrpszArgV){
              * 
              * In the original algorithm the same delta was
              * added to the sum 32 times. So perhaps we should try to have it start at 32 * delta? */
-            iIterations = y;
             unsigned int uiDelta = 0x9E3779B9;
             unsigned int uiSum = (uiDelta * iIterations);
 
@@ -434,18 +431,18 @@ int main(int iArgC, char **arrpszArgV){
 
             /* I figured this out by creating my own encrypted test with my solution from task 4. */
             if(iEndian == 1){
-               if(un_by8Encrypted.schar[4] == 0x07){
-                  //printf(" %02x ", un_by8Encrypted.schar[0]);
-                  szDeciphered[l] = (char) un_by8Encrypted.schar[0];
+               if(un_by8Encrypted.schar[3] == 0x07){
+                  printf(" %02x", un_by8Encrypted.schar[7]);
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[7];
                   iDeciphered = 1;
                } else {
                   iDeciphered = -1; 
                }
 
             } else {
-               if(un_by8Encrypted.schar[3] == 0x07){
-                  //printf(" %02x ", un_by8Encrypted.schar[7]);
-                  szDeciphered[l] = (char) un_by8Encrypted.schar[7];
+               if(un_by8Encrypted.schar[4] == 0x07){
+                  printf("%02x", un_by8Encrypted.schar[7]);
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[0];
                   iDeciphered = 1;
                } else {
                   iDeciphered = -1; 
