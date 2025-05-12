@@ -260,7 +260,7 @@ int main(int iArgC, char **arrpszArgV){
 
 
       /* Writing contents of body to encrypted file (as signed char)*/
-      fwrite(reRequest.arrby8Encrypted, sizeof(char), iContentLength, fpEncryptedFile);
+      fwrite(reRequest.arrby8Encrypted, sizeof(long), iContentLength / 8, fpEncryptedFile);
 
       /* Closing file and cleaning up */
       fclose(fpEncryptedFile);
@@ -284,7 +284,7 @@ int main(int iArgC, char **arrpszArgV){
 
    /* Opening file */
    //fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
-   fpEncrypted = fopen("./encrypted.bin", "rb");
+   fpEncrypted = fopen("encrypted.bin", "rb");
    if(fpEncrypted == NULL){
       printf("Failed to open file.\n");
       return 1;
@@ -328,12 +328,14 @@ int main(int iArgC, char **arrpszArgV){
    BYTE by4Key[4]; /* since every byte is the same, this is fine just for padding for one key modifier later */
    memset(by4Key, 0, 4);
 
-   for(y = 1; y <= 8; y++){
+   for(y = 1; y <= 32; y++){
 
       /* Doubles the iterations every other loop (MAX 64) */
+      /*
       if(y % 2 != 0 ){
          if(y >= 3) iIterations += iIterations; 
       }
+      */
 
       int i;
       for(i = 0; i <= 255; i++){
@@ -362,7 +364,7 @@ int main(int iArgC, char **arrpszArgV){
             union UN_BY8 un_by8Encrypted;
             un_by8Encrypted.by8Base = aun_by8Encrypted[l].by8Base;
 
-            un_by8Encrypted.by8Base = ntohll(un_by8Encrypted.by8Base);
+            un_by8Encrypted.by8Base = htonll(un_by8Encrypted.by8Base);
             /* Checks between little endian (host order) and big endian (network order) */
             if(y % 2 == 0){
                iEndian = 1;
@@ -391,6 +393,7 @@ int main(int iArgC, char **arrpszArgV){
              * 
              * In the original algorithm the same delta was
              * added to the sum 32 times. So perhaps we should try to have it start at 32 * delta? */
+            iIterations = y;
             unsigned int uiDelta = 0x9E3779B9;
             unsigned int uiSum = (uiDelta * iIterations);
 
@@ -431,16 +434,18 @@ int main(int iArgC, char **arrpszArgV){
 
             /* I figured this out by creating my own encrypted test with my solution from task 4. */
             if(iEndian == 1){
-               if(un_by8Encrypted.schar[3] == 0x07){
-                  szDeciphered[l] = (char) un_by8Encrypted.schar[7];
+               if(un_by8Encrypted.schar[4] == 0x07){
+                  //printf(" %02x ", un_by8Encrypted.schar[0]);
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[0];
                   iDeciphered = 1;
                } else {
                   iDeciphered = -1; 
                }
 
             } else {
-               if(un_by8Encrypted.schar[4] == 0x07){
-                  szDeciphered[l] = (char) un_by8Encrypted.schar[0];
+               if(un_by8Encrypted.schar[3] == 0x07){
+                  //printf(" %02x ", un_by8Encrypted.schar[7]);
+                  szDeciphered[l] = (char) un_by8Encrypted.schar[7];
                   iDeciphered = 1;
                } else {
                   iDeciphered = -1; 
