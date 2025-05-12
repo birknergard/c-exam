@@ -241,7 +241,7 @@ int main(int iArgC, char **arrpszArgV){
 
       printf("\nENC AS c=\n");
       for(i = 0; i < iContentLength / 8; i++){
-         printf("IN %016llX ", reRequest.arrby8Encrypted[i].by8Base);
+         printf("0x%016llX ", reRequest.arrby8Encrypted[i].by8Base);
          /* Bytes are converted to LITTLE ENDIAN */
          //reRequest.arrby8Encrypted[i].by4[0] = ntohl(reRequest.arrby8Encrypted[i].by4[0]);
          //reRequest.arrby8Encrypted[i].by4[1] = ntohl(reRequest.arrby8Encrypted[i].by4[1]);
@@ -332,6 +332,12 @@ int main(int iArgC, char **arrpszArgV){
    }
    printf("\nENC AFTER WRITE END=\n");
 
+   /*
+   for(i = 0; i < iSize; i++){
+      aun_by8Encrypted[i].by4[0] = ntohl(aun_by8Encrypted[i].by4[0]);
+      aun_by8Encrypted[i].by4[1] = ntohl(aun_by8Encrypted[i].by4[1]);
+   }
+   */
 
    for(i = 0; i <= 255; i++){
 
@@ -364,22 +370,23 @@ int main(int iArgC, char **arrpszArgV){
          //printf("AFTER %08lx == %08lx\n", aun_by8Encrypted[l].by8Base, un_by8Deciphered.by8Base);
 
          un_by8Buffer[l].by8Base = un_by8Deciphered.by8Base;
+         szDeciphered[l] = (char) un_by8Deciphered.by[0];
          l++;
 
       }
 
+      /*
       if(cCheckedCharKey == 12){
          int k;
          printf("Partially decrypted ->\n");
          for(k = 0; k < iSize; k++){
-            printf("0x%016llX ", un_by8Buffer[k].by8Base);
+            printf("0x%02X ", un_by8Buffer[k].by);
          }
       }
+      */
 
 
 
-      //szDeciphered[l] = (char) un_by8Deciphered.by[0];
-      /*
       int iChars, iFailed;
       for(iChars = 0; iChars < iSize; iChars++){
          iFailed = isReadableAscii(szDeciphered[iChars]);
@@ -397,7 +404,6 @@ int main(int iArgC, char **arrpszArgV){
             printf("%c", (char) szDeciphered[k]);
          }
       }
-      */
    }
 
    return 0;
