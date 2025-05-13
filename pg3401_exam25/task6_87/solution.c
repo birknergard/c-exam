@@ -211,33 +211,40 @@ int main(int iArgC, char **arrpszArgV){
       printf("Content length %d\n", iContentLength);
 
       /* Allocating struct to hold response. Divided into the header (string array) and encrypted message (long array) */
-      char *szHeader = NULL;
-      union UN_BY8 *arrby8Encrypted = NULL;
+      ENC_REQUEST erFullData = {0};
+      erFullData.szFull = NULL;
+      /*erFullData.arrby8Encrypted = NULL;
+      */
 
-      szHeader = (unsigned char *) malloc(iHeaderLength);
-      if(szHeader == NULL){
+      erFullData.szFull = (char *) malloc(iHeaderLength + iContentLength);
+      if(erFullData.szFull == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
          return -3;
       }
+      /*
 
-      arrby8Encrypted = (union UN_BY8 *) malloc(iContentLength);
-      if(arrby8Encrypted == NULL){
+      erFullData.arrby8Encrypted = (union UN_BY8 *) malloc(iContentLength);
+      if(erFullData.arrby8Encrypted == NULL){
          printf("Malloc failed. Exiting ...\n");
          close(sockClient); sockClient = -1;
          return -3;
       }
+      */
 
-      /* Receive header first */
+      /* NOTE: TESTING RECEIVING EVERYTHING AT ONCE /*
+      /* Receive header first 
       iReceived = recv(sockClient, szHeader, iHeaderLength, 0);
       if(iReceived < 0){
          printf("Failed to receive response from server - errcode %d\n", errno);
          close(sockClient); sockClient = -1;
          return -2; 
-      } 
+      }
+      */
 
+      /* NOTE: RECEIVING EVERYTHING */
       /* Then receive the encrypted message in 64 bit array first */
-      iReceived = recv(sockClient, arrby8Encrypted, iContentLength, 0);
+      iReceived = recv(sockClient, erFullData.szFull, iContentLength + iHeaderLength, 0);
       if(iReceived < 0){
          printf("Failed to receive response from server - errcode %d\n", errno);
          close(sockClient); sockClient = -1;
@@ -246,50 +253,60 @@ int main(int iArgC, char **arrpszArgV){
 
       printf("\nHEADER=");
       for(i = 0; i < iHeaderLength; i++){
-         if(szHeader[i] == '\r') printf("\\r");
-         else if(szHeader[i] == '\n') printf("\\n");
-         else printf("%c", szHeader[i]);
+         if(erFullData.szFull[i] == '\r') printf("\\r");
+         else if(erFullData.szFull[i] == '\n') printf("\\n");
+         else printf("%c", erFullData.szFull[i]);
       }
       puts("HEADER END\n");
 
+      /* Opening / creating file handle */
+      FILE *fpEncryptedFile = NULL;
+      fpEncryptedFile = fopen("./encrypted.bin", "wb");
+      if(fpEncryptedFile == NULL){
+         free(erFullData.szFull);
+         erFullData.szFull = NULL;
+         //free(erFullData.arrby8Encrypted);
+         //erFullData.arrby8Encrypted = NULL;
+         close(sockClient); sockClient = -1;
+         return -1;
+      }
+
+      printf("2.\n");
       printf("\nENC AS c=\n");
-      for(i = 0; i < iContentLength / 8; i++){
-         printf("0x%016llX ", arrby8Encrypted[i].by8Base);
+      for(i = iHeaderLength; i < iContentLength + iHeaderLength; i++){
+         BYTE byCurrent = erFullData.szFull[i];
+         printf("0x%02x ", byCurrent);
+         fwrite(&byCurrent, sizeof(BYTE), 1, fpEncryptedFile);
+         //printf("0x%016llX ", erFullData.arrby8Encrypted[i].by8Base);
          /* Bytes are converted to LITTLE ENDIAN */
          //reRequest.arrby8Encrypted[i].by4[0] = ntohl(reRequest.arrby8Encrypted[i].by4[0]);
          //reRequest.arrby8Encrypted[i].by4[1] = ntohl(reRequest.arrby8Encrypted[i].by4[1]);
       }
       printf("\nENC END=\n");
 
-      /* Opening / creating file handle */
-      FILE *fpEncryptedFile = NULL;
-      fpEncryptedFile = fopen("./encrypted.bin", "wb");
-      if(fpEncryptedFile == NULL){
-         free(szHeader);
-         szHeader = NULL;
-         free(arrby8Encrypted);
-         arrby8Encrypted = NULL;
-         close(sockClient); sockClient = -1;
-         return -1;
-      }
+      printf("3.\n");
 
+      /*
+      printf("4.\n");
       printf("\nENC (%d bytes) AS HEX, AFTER WRITE=\n", iContentLength);
       for(i = 0; i < iContentLength / 8 ; i++){
-         printf("%016llX ", arrby8Encrypted[i].by8Base);
+         printf("%016llX ", erFullData.arrby8Encrypted[i].by8Base);
       }
       printf("\nENC AFTER WRITE END=\n");
+      */
 
+      printf("5.\n");
       /* Writing contents of body to encrypted file in 8 byte segments (each encrypted character)*/
-      fwrite(arrby8Encrypted, sizeof(BY8), iContentLength / 8, fpEncryptedFile);
 
+      printf("6.\n");
       /* Closing file and cleaning up */
       fclose(fpEncryptedFile);
       fpEncryptedFile = NULL;
 
-      free(szHeader);
-      szHeader = NULL;
-      free(arrby8Encrypted);
-      arrby8Encrypted = NULL;
+      free(erFullData.szFull);
+      erFullData.szFull = NULL;
+      //free(erFullData.arrby8Encrypted);
+      //erFullData.arrby8Encrypted = NULL;
       close(sockClient);
       
       sockClient = -1;
@@ -303,8 +320,8 @@ int main(int iArgC, char **arrpszArgV){
    FILE *fpEncrypted = NULL;
 
    /* Opening file */
-   fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
-   //fpEncrypted = fopen("encrypted.bin", "rb");
+   //fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
+   fpEncrypted = fopen("encrypted.bin", "rb");
    if(fpEncrypted == NULL){
       printf("Failed to open file.\n");
       return 1;
@@ -372,7 +389,9 @@ int main(int iArgC, char **arrpszArgV){
 
          /* since every byte is the same, this is fine just for padding for one key modifier later */
          union UN_BY16 by16Key; 
-         memset(by16Key.by, (BYTE) cCheckedCharKey, 16);
+         memset(by16Key.by4, cCheckedCharKey, sizeof(unsigned int) * 4);
+
+         //printf("\nThe key value: 0x%08lx\n", by16Key.by4[0]);
 
          /* Stored as a union array for more flexibility */
          union UN_BY8 *aun_by8Buffer = NULL;
@@ -440,20 +459,20 @@ int main(int iArgC, char **arrpszArgV){
 
             /* If i only want to check 1 padded byte, go here */
             if(iCheckAll == 1){
-               aun_by8Buffer[0].by4[0] = un_by8Deciphered.by4[0]; 
-               aun_by8Buffer[0].by4[1] = un_by8Deciphered.by4[1]; 
+               aun_by8Buffer[l].by4[0] = un_by8Deciphered.by4[0]; 
+               aun_by8Buffer[l].by4[1] = un_by8Deciphered.by4[1]; 
 
                /* Check every single byte in the long for valid bytes and print if true */
                int u;
                for(u = 0; u <= 7; u++){
                   /* If we found non readable ascii we break the loop */
-                  if(isNonReadableAscii((BYTE) aun_by8Buffer[0].by[u]) != 0){
+                  if(isNonReadableAscii((BYTE) aun_by8Buffer[l].by[u]) != 0){
                      break;
                   }
                   /* If we got here, that means the long passed the test */
                   if(u == 7){
-                     printf("\nEncrypted Byte, on key=%d :0x%016llx\n", i, aun_by8Encrypted[0].by8Base);
-                     printf("Attempted decipher, on key=%d :0x%016llx\n\n", i, aun_by8Buffer[0].by8Base);
+                     printf("\nEncrypted Byte, on key=%d :0x%016llx\n", i, aun_by8Encrypted[l].by8Base);
+                     printf("Attempted decipher, on key=%d :0x%016llx\n\n", i, aun_by8Buffer[l].by8Base);
                   }
                }
                break;

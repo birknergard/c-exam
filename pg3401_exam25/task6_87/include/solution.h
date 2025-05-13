@@ -23,8 +23,8 @@ union UN_BY8 {
 
 #pragma pack(1)
 typedef struct _ENC_REQUEST{
-   char *szHeader;
-   union UN_BY8 *arrby8Encrypted;
+   char *szFull;
+   //union UN_BY8 *arrby8Encrypted;
 } ENC_REQUEST;
 #pragma pack()
 
