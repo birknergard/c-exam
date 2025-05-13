@@ -15,14 +15,20 @@
 #include <arpa/inet.h>
 
 /*
+ * TODO: Make this inline instead
  * Function to check whether the given character is a readable ascii character.
  * Used as a whitelist.
  * */
-int isNonReadableAscii(char c){
-   if((127 > c && c > 30) || c == '\n' || c == '\r' || c == '\t'){
-      return 0;
-   }
-   return 1;
+int isNonReadableAscii(BYTE c){
+   /* Checks every readable ascii character, as well as CR and LF */
+
+   if(c == '\n') return 0;
+   if(c == '\r') return 0;
+   if(c == 0x07) return 0;
+
+   if(0x19 > c) return 1;
+   if(0x7F < c) return 1;
+   else return 0;
 }
 
 /* NOTE: As i probably mentioned in that source file, the code was essentially entirely based on
@@ -297,8 +303,8 @@ int main(int iArgC, char **arrpszArgV){
    FILE *fpEncrypted = NULL;
 
    /* Opening file */
-   //fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
-   fpEncrypted = fopen("encrypted.bin", "rb");
+   fpEncrypted = fopen("../task4_87/task4_pg2265.bin", "rb"); 
+   //fpEncrypted = fopen("encrypted.bin", "rb");
    if(fpEncrypted == NULL){
       printf("Failed to open file.\n");
       return 1;
@@ -331,6 +337,10 @@ int main(int iArgC, char **arrpszArgV){
    fpEncrypted = NULL;
 
    int iIterations = 32;
+
+   /* Change this to toggle between checking one, or all the bytes */
+   int iCheckAll = 1;
+
    unsigned char cKeyChar = 0;
 
    printf("\nENC (%d bytes, %d sz) AS HEX, AFTER WRITE=\n", iFileContent, iSize);
@@ -342,16 +352,14 @@ int main(int iArgC, char **arrpszArgV){
 
    char *szDeciphered = NULL;
 
-   /* Runs the decryption for four extra iterations.
+   /* Runs the decryption for extra iterations.
     * 0. No endian conversion
-    * 1. ntohl pre decipher (network to host)
-    * 2. ntohl post decipher (network to host)
     * */
    int t;
-   for(t = 0; t <= 2; t++){
+   for(t = 0; t <= 1; t++){
 
       int iFailed = 0;
-         for(i = 0; i <= 255; i++){
+      for(i = 0; i <= 255; i++){
 
          /* Allocating for decipher container */
          char *szDeciphered = (char *) malloc(iSize + 1);
@@ -377,61 +385,115 @@ int main(int iArgC, char **arrpszArgV){
 
          /* Loop until every padded byte has been checked */
          int l = 0;
+
+
          while(l < iSize){
 
-            /* Structure to hold the decrypted bye */
+            /* Structure to hold the decrypted byte */
             union UN_BY8 un_by8Deciphered;
             un_by8Deciphered.by4[0] = 0;
             un_by8Deciphered.by4[1] = 0;
             /* Also attemted to convert to little endian, but result scrambled identically.
              * Converting before decryption also led to no valid results. */
             //if(l == 0){ printf("1. %08X %08X\n",un_by8Deciphered.by4[0],un_by8Deciphered.by4[1]); }
+            /*
             if(t == 1){
                aun_by8Encrypted[l].by4[0] = ntohl(aun_by8Encrypted[l].by4[0]);
                aun_by8Encrypted[l].by4[1] = ntohl(aun_by8Encrypted[l].by4[1]);
             }
+            */
             /* [SUPPOSED TO] decipher the given long by split integer (4,4). The key is always the same
              * integer for this task since every byte in the key is the same. Decrypted long is stored in
              * the Deciphered union.*/
-            decipher(aun_by8Encrypted[l].by4, un_by8Deciphered.by4, by16Key.by4, 32);
+
+            /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
+            register unsigned int uiSum = 0xC6EF3720, uiDelta = 0x9E3779B9;
+            register unsigned int uiKeyOne = by16Key.by4[0], uiKeyTwo = by16Key.by4[1], uiKeyThree = by16Key.by4[2], uiKeyFour = by16Key.by4[3];
+            register int n = 32;
+
+            /* Store each separate int in a buffer */
+            register unsigned int byY = aun_by8Encrypted[l].by4[0];
+            register unsigned int byZ = aun_by8Encrypted[l].by4[1];
+
+            /* Encrypt each half of the padded byte */
+            while(n-->0){
+               byZ -= (byY << 4) + uiKeyThree ^ byY + uiSum ^ ( byY >> 5) + uiKeyFour;
+               byY -= (byZ << 4) + uiKeyOne ^ byZ + uiSum ^ ( byZ >> 5) + uiKeyTwo;
+               uiSum -= uiDelta;
+            }
+
+            /* Store the encrypted byte back into their original indices */
+            un_by8Deciphered.by4[0] = byY;
+            un_by8Deciphered.by4[1] = byZ;
 
             /* Also attemted to convert to little endian, but result scrambled identically.
              * Converting before decryption also led to no valid results. */
+            /*
             if(t == 2){
                aun_by8Buffer[l].by4[0] = ntohl(un_by8Deciphered.by4[0]);
                aun_by8Buffer[l].by4[1] = ntohl(un_by8Deciphered.by4[1]);
             }
+            */
             //if(l == 0){ printf("2. %08X %08X\n",un_by8Deciphered.by4[0],un_by8Deciphered.by4[1]); }
             /* Checks the first char, given padding goes 0xVA 0x07 0x07 0x07 0x07 0x07 0x07 0x07 
              * This could change as a result of endianness */
 
-            /* In iteration 0 we assign to the buffer normally */
-            if(t == 0){
+            /* If i only want to check 1 padded byte, go here */
+            if(iCheckAll == 1){
+               aun_by8Buffer[0].by4[0] = un_by8Deciphered.by4[0]; 
+               aun_by8Buffer[0].by4[1] = un_by8Deciphered.by4[1]; 
+
+               /* Check every single byte in the long for valid bytes and print if true */
+               int u;
+               for(u = 0; u <= 7; u++){
+                  /* If we found non readable ascii we break the loop */
+                  if(isNonReadableAscii((BYTE) aun_by8Buffer[0].by[u]) != 0){
+                     break;
+                  }
+                  /* If we got here, that means the long passed the test */
+                  if(u == 7){
+                     printf("\nEncrypted Byte, on key=%d :0x%016llx\n", i, aun_by8Encrypted[0].by8Base);
+                     printf("Attempted decipher, on key=%d :0x%016llx\n\n", i, aun_by8Buffer[0].by8Base);
+                  }
+               }
+               break;
+
+            } else {
+               /* Store the decyphered byte in its correlating position in the buffer */
                aun_by8Buffer[l].by4[0] = un_by8Deciphered.by4[0]; 
                aun_by8Buffer[l].by4[1] = un_by8Deciphered.by4[1]; 
-            }
 
-            szDeciphered[l] = (char) aun_by8Buffer[l].by[0];
-            l++;
-         }
-
-         //printf("\nDEC (%d bytes, KEY=%d ) AS HEX, AFTER WRITE=\n", iFileContent, i);
-         //printf("%016llX ", aun_by8Buffer[0].by8Base);
-         //printf("\nDEC AFTER WRITE END=\n");
-
-         szDeciphered[l] = '\0';
-
-         int iChars;
-         for(iChars = 0; iChars <= l; iChars++){
-            if(isNonReadableAscii(szDeciphered[iChars])){
-               iFailed = 1;
+               /* Increments l, check next padded byte */
+               /* NOTE: Stores the decrypyted byte (VERIFY WHOLE 64 BYTE FIRST, DO THIS LATER)*/
+               // szDeciphered[l] = (char) aun_by8Buffer[l].by[0];
+               l++;
             }
          }
 
-         if(iFailed != 1){
-            printf("\n\n---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02x\n", iIterations, t, cCheckedCharKey);
-            printf("\nSolution? %s\n\n", szDeciphered);
-         } 
+         if(iCheckAll != 1){
+
+            /* Verifies iterator l */
+            printf("Decyphered %d characters\n", l);
+
+            //printf("\nDEC (%d bytes, KEY=%d ) AS HEX, AFTER WRITE=\n", iFileContent, i);
+            //printf("%016llX ", aun_by8Buffer[0].by8Base);
+            //printf("\nDEC AFTER WRITE END=\n");
+
+            szDeciphered[l] = '\0';
+
+            int iChars;
+            for(iChars = 0; iChars <= l; iChars++){
+               if(isNonReadableAscii(szDeciphered[iChars])){
+                  iFailed = 1;
+               }
+            }
+
+            if(iFailed != 1){
+               printf("\n\n---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02x\n", iIterations, t, cCheckedCharKey);
+               printf("\nSolution? %s\n\n", szDeciphered);
+            } 
+
+         }
 
          free(szDeciphered);
          szDeciphered = NULL;

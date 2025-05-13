@@ -183,7 +183,8 @@ void* CounterThread(void* vpArgs) {
    int iReaderComplete = 0;
    int iarrByteCount[BYTE_RANGE];
    int iDJB2Hash; 
-   BYTE by, byKey[16];
+   BYTE by;
+   unsigned int byKey[4];
 
    /* Casting void * to argument struct * */
    THREAD_ARGS *tData = (THREAD_ARGS *) vpArgs; 
@@ -263,32 +264,37 @@ void* CounterThread(void* vpArgs) {
             for(i = 0; i < tData->iBytesInBuffer; i++){
                by = tData->byarrBuffer[i];
 
-               /* Create key */
-               memset(byKey, 'f', 16);
+               /* Create a 16 byte key on character f (0x66) */
+               memset(byKey, 0x6666, sizeof(unsigned int)*4);
 
                /* Pad byte with union and 0x07 (PKCS5 padding) */
                union ENCBYTE byEncrypted;
                memset(byEncrypted.by, 0x07, 8);
-               byEncrypted.by[7] = by;
+               /* Set padded byte in first position */
+               byEncrypted.by[0] = by;
+               printf("Padded byte =0x%08lx\n", byEncrypted.by8);
 
                /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
+               register unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
+               register unsigned int uiKeyOne = byKey[0], uiKeyTwo = byKey[1], uiKeyThree = byKey[2], uiKeyFour = byKey[3];
+               register int n = 32;
 
-               unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
-               unsigned int uiKeyOne = byKey[0], uiKeyTwo = byKey[3], uiKeyThree = byKey[7], uiKeyFour = byKey[11];
-               int n;
+               /* Store each separate int in a buffer */
+               register unsigned int byY = byEncrypted.by4[0];
+               register unsigned int byZ = byEncrypted.by4[1];
 
-               unsigned int byY = byEncrypted.by4[0];
-               unsigned int byZ = byEncrypted.by4[1];
-
-               /* Encrypts padded byte */
-               for(n = 0; n < 32; n++){
+               /* Encrypt each half of the padded byte */
+               while(n-->0){
                   uiSum += uiDelta;
-                  byY += ((byZ << 4) + uiKeyOne) ^ (byZ + uiSum) ^ (( byZ >> 5) + uiKeyTwo);
-                  byZ += ((byY << 4) + uiKeyThree) ^ (byY + uiSum) ^ (( byY >> 5) + uiKeyFour);
+                  byY += (byZ << 4) + uiKeyOne ^ byZ + uiSum ^ ( byZ >> 5) + uiKeyTwo;
+                  byZ += (byY << 4) + uiKeyThree ^ byY + uiSum ^ ( byY >> 5) + uiKeyFour;
                }
 
+               /* Store the encrypted byte back into their original indices */
                byEncrypted.by4[0] = byY;
                byEncrypted.by4[1] = byZ;
+
+               printf("Encrypted byte =0x%08lx\n", byEncrypted.by8);
 
                /* Write encrypted byte to file */
                fwrite(&byEncrypted.by4, sizeof(BYTE) * 4, 2, fpEncrypted);
