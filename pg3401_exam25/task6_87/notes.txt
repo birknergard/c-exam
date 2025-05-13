@@ -1,10 +1,12 @@
-0:
+"Succesful" deciphers when checking different bytes in the spread.
+
+Byte 0/7:
 iirnn7ancynnn lpufod  olidopu lseugg ghmyrh eogx to.s oj   at ttpuf
 39yei7
 
-1:
+Byte 1/7:
 la du,t e gc teea uegybvl uuci knltiariyovagru aIou ntoutyrsiy  rru
 r-CsI-5pys9
 
-2:
+Byte 2/7:
 e ueDE,t  .c rkh. lyr oolilt thnts l v ac uesrv tm   Itodshou motao r

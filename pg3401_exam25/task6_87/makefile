@@ -20,6 +20,9 @@ $(OBJDIR)/%.o: %.c $(DEPS)
 solution: $(OBJS)
 	gcc -o $@ $^ $(CFLAGS)
 
+server: $(OBJS)
+	gcc testserver.c -o testserver $(CFLAGS)
+
 .PHONY: clean
 clean:
 	rm -f $(OBJDIR)/*.o *~ core $(INCLDIR)/*~

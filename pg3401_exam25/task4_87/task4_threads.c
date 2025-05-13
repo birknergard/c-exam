@@ -211,8 +211,8 @@ void* CounterThread(void* vpArgs) {
          /* Set failure flag to true */
          tData->iCounterSetupFailed = 1;
       }
-      
-      fpEncrypted = fopen("./task4_pg2265.bin", "wb");
+
+      fpEncrypted = fopen("./task4_pg2265.bin", "wb"); 
       if(fpEncrypted == NULL){
          perror("Failed to open .enc file.");
 
@@ -264,15 +264,14 @@ void* CounterThread(void* vpArgs) {
             for(i = 0; i < tData->iBytesInBuffer; i++){
                by = tData->byarrBuffer[i];
 
-               /* Create a 16 byte key on character f (0x66) */
-               memset(byKey, 0x6666, sizeof(unsigned int)*4);
+               /* Create a 16 byte key on character */
+               memset(byKey, 0xF1F1, sizeof(unsigned int)*4);
 
                /* Pad byte with union and 0x07 (PKCS5 padding) */
                union ENCBYTE byEncrypted;
                memset(byEncrypted.by, 0x07, 8);
                /* Set padded byte in first position */
                byEncrypted.by[0] = by;
-               printf("Padded byte =0x%08lx\n", byEncrypted.by8);
 
                /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
                register unsigned int uiSum = 0, uiDelta = 0x9E3779B9;
@@ -294,7 +293,6 @@ void* CounterThread(void* vpArgs) {
                byEncrypted.by4[0] = byY;
                byEncrypted.by4[1] = byZ;
 
-               printf("Encrypted byte =0x%08lx\n", byEncrypted.by8);
 
                /* Write encrypted byte to file */
                fwrite(&byEncrypted.by4, sizeof(BYTE) * 4, 2, fpEncrypted);

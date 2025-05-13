@@ -36,10 +36,10 @@ multiplied by 2^32).
 
 ************************************************/
 
-void encipher(unsigned long *const v,unsigned long *const w,
-const unsigned long *const k)
+void encipher(unsigned int *const v,unsigned int *const w,
+const unsigned int *const k)
 {
-   register unsigned long       y=v[0],z=v[1],sum=0,delta=0x9E3779B9,
+   register unsigned int       y=v[0],z=v[1],sum=0,delta=0x9E3779B9,
 				a=k[0],b=k[1],c=k[2],d=k[3],n=32;
 
    while(n-->0)
@@ -52,10 +52,10 @@ const unsigned long *const k)
    w[0]=y; w[1]=z;
 }
 
-void decipher(unsigned long *const v,unsigned long *const w,
-const unsigned long *const k)
+void decipher(unsigned int *const v,unsigned int *const w,
+const unsigned int *const k)
 {
-   register unsigned long       y=v[0],z=v[1],sum=0xC6EF3720,
+   register unsigned int       y=v[0],z=v[1],sum=0xC6EF3720,
 				delta=0x9E3779B9,a=k[0],b=k[1],c=k[2],
 				d=k[3],n=32;
 
