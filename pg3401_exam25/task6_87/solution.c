@@ -31,23 +31,6 @@ int isNonReadableAscii(BYTE c){
    else return 0;
 }
 
-/* NOTE: As i probably mentioned in that source file, the code was essentially entirely based on
-the supplied tea.c file and its documentation. */
-void decipher(unsigned int *const v, unsigned int *const w, unsigned int *const k, unsigned int n){
-   register unsigned int y=v[0], z=v[1], delta=0x9E3779B9, sum=delta * n; /*sum=0xC6EF3720**/
-   register unsigned int a=k[0], b=k[1], c=k[2], d=k[3];
-
-   int i; 
-   for(i = 0; i < n; i++){
-      z -= ((y << 4) + c) ^ (y+sum) ^ ((y>>5) + d);
-      y -= ((z << 4) + a) ^ (z+sum) ^ ((z>>5) + b);
-      sum -= delta;
-   }
-
-   w[0] = y;
-   w[1] = z;
-}
-
 int main(int iArgC, char **arrpszArgV){
 
    if(iArgC < 2){
@@ -261,7 +244,7 @@ int main(int iArgC, char **arrpszArgV){
 
       /* Opening / creating file handle */
       FILE *fpEncryptedFile = NULL;
-      fpEncryptedFile = fopen("./encrypted.bin", "wb");
+      fpEncryptedFile = fopen("encrypted.bin", "wb");
       if(fpEncryptedFile == NULL){
          free(erFullData.szFull);
          erFullData.szFull = NULL;
@@ -356,7 +339,7 @@ int main(int iArgC, char **arrpszArgV){
    int iIterations = 32;
 
    /* Change this to toggle between checking one, or all the bytes */
-   int iCheckAll = 1;
+   int iCheckAll = 0;
 
    unsigned char cKeyChar = 0;
 
@@ -482,17 +465,23 @@ int main(int iArgC, char **arrpszArgV){
                aun_by8Buffer[l].by4[0] = un_by8Deciphered.by4[0]; 
                aun_by8Buffer[l].by4[1] = un_by8Deciphered.by4[1]; 
 
+               /* Which specific byte to store */
+               int iByteToSave = 0;
+
+               if(isNonReadableAscii((BYTE) aun_by8Buffer[l].by[iByteToSave]) != 0){
+                  break;
+               }
+
+               /* Stores the decrypyted byte (VERIFY WHOLE 64 BYTE FIRST, DO THIS LATER)*/
+               szDeciphered[l] = (char) aun_by8Buffer[l].by[iByteToSave];
+
                /* Increments l, check next padded byte */
-               /* NOTE: Stores the decrypyted byte (VERIFY WHOLE 64 BYTE FIRST, DO THIS LATER)*/
-               // szDeciphered[l] = (char) aun_by8Buffer[l].by[0];
                l++;
             }
          }
 
          if(iCheckAll != 1){
 
-            /* Verifies iterator l */
-            printf("Decyphered %d characters\n", l);
 
             //printf("\nDEC (%d bytes, KEY=%d ) AS HEX, AFTER WRITE=\n", iFileContent, i);
             //printf("%016llX ", aun_by8Buffer[0].by8Base);
@@ -500,18 +489,12 @@ int main(int iArgC, char **arrpszArgV){
 
             szDeciphered[l] = '\0';
 
-            int iChars;
-            for(iChars = 0; iChars <= l; iChars++){
-               if(isNonReadableAscii(szDeciphered[iChars])){
-                  iFailed = 1;
-               }
-            }
-
-            if(iFailed != 1){
+            if(l == iSize){
+               /* Verifies iterator l */
+               printf("Decyphered %d characters\n", l);
                printf("\n\n---RAN DECRYPT -> TEA ITERATIONS=%d, ENDIAN=%d, KEY=%02x\n", iIterations, t, cCheckedCharKey);
-               printf("\nSolution? %s\n\n", szDeciphered);
-            } 
-
+               printf("\n%s\n\n", szDeciphered);
+            }
          }
 
          free(szDeciphered);
