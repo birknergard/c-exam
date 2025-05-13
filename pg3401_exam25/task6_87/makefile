@@ -11,7 +11,7 @@ OBJDIR = obj
 _DEPS = solution.h  
 DEPS = $(patsubst %,$(INCLDIR)/%,$(_DEPS))
 
-_OBJS = solution.o 
+_OBJS = solution.o TEA-2.o 
 OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))
 
 $(OBJDIR)/%.o: %.c $(DEPS)
