@@ -10,7 +10,6 @@
  * the intent, so i created it so that it essentially works sequentially. The counter thread and
  * the reader thread will never read the memory buffer simultaneously. While one of them works, the other
  * waits, until the signal is given, where they will switch.
- *
  * I also was not sure whether we were supposed to transform the decryption code in any way. I attempted to do
  * so and tested the result but I would love to know in the feedback.
  * */
@@ -269,7 +268,7 @@ void* CounterThread(void* vpArgs) {
 
                /* Pad byte with union and 0x07 (PKCS5 padding) */
                union ENCBYTE byEncrypted;
-               memset(&byEncrypted.by, 0x07, 8);
+               memset(byEncrypted.by, 0x07, 8);
                byEncrypted.by[7] = by;
 
                /* Running algorithm (Made by David Wheeler and Roger Needham, provided by EWA) */
@@ -292,7 +291,7 @@ void* CounterThread(void* vpArgs) {
                byEncrypted.by4[1] = byZ;
 
                /* Write encrypted byte to file */
-               fwrite(&byEncrypted.by8, sizeof(BYTE) * 8, 1, fpEncrypted);
+               fwrite(&byEncrypted.by4, sizeof(BYTE) * 4, 2, fpEncrypted);
             }
 
             /* Resets the number of bytes in buffer */
