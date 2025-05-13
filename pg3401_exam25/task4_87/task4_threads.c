@@ -212,7 +212,7 @@ void* CounterThread(void* vpArgs) {
          tData->iCounterSetupFailed = 1;
       }
 
-      fpEncrypted = fopen("./task4_pg2265.bin", "wb"); 
+      fpEncrypted = fopen("./task4_pg2265.enc", "wb"); 
       if(fpEncrypted == NULL){
          perror("Failed to open .enc file.");
 
